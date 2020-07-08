@@ -1,4 +1,5 @@
 # topologic-native
+
 [topologic](https://github.com/microsoft/topologic) is an opinionated Python library built around a collection of the 
 best network/graph embedding techniques and other network related functionality best practices. 
 
