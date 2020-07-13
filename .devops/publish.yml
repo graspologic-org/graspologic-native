@@ -1,5 +1,5 @@
 jobs:
-- template: .devops/common-build.yml
+- template: common-build.yml
 - job: inclusion_test
   displayName: Job After Inclusion
   pool:
