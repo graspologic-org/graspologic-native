@@ -1,6 +1,7 @@
 jobs:
 - template: common-build.yml
 - job: inclusion_test
+  dependsOn: python_build
   displayName: Job After Inclusion
   pool:
     vmImage: "ubuntu-latest"
