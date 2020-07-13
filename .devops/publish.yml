@@ -1,0 +1,9 @@
+jobs:
+- template: .devops/common-build.yml
+- job: inclusion_test
+  displayName: Job After Inclusion
+  pool:
+    vmImage: "ubuntu-latest"
+  steps:
+    - script: |
+        echo "Hello"
