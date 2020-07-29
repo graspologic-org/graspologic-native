@@ -49,30 +49,39 @@ jobs:
 #      linux_p36:
 #        os: "ubuntu-latest"
 #        python_version: "3.6"
+#        interpreter: "python3.6"
 #      linux_p37:
 #        os: "ubuntu-latest"
 #        python_version: "3.7"
-#      linux_p38:
-#        os: "ubuntu-latest"
-#        python_version: "3.8"
+#        interpreter: "python3.7"
+      linux_p38:
+        os: "ubuntu-latest"
+        python_version: "3.8"
+        interpreter: "python3.8"
 #      mac_p36:
 #        os: "macos-latest"
 #        python_version: "3.6"
+#        interpreter: "python3.6"
 #      mac_p37:
 #        os: "macos-latest"
 #        python_version: "3.7"
-#      mac_p38:
-#        os: "macos-latest"
-#        python_version: "3.8"
+#        interpreter: "python3.7"
+      mac_p38:
+        os: "macos-latest"
+        python_version: "3.8"
+        interpreter: "python3.8"
 #      windows_p36:
 #        os: "windows-latest"
 #        python_version: "3.6"
+#        interpreter: "3.6-64"
 #      windows_p37:
 #        os: "windows-latest"
 #        python_version: "3.7"
+#        interpreter: "3.7-64"
       windows_p38:
         os: "windows-latest"
         python_version: "3.8"
+        interpreter: "3.8-64"
   pool:
     vmImage: $(os)
   steps:
@@ -85,12 +94,11 @@ jobs:
       inputs:
         versionSpec: $(python_version)
     - script: |
-        py -0
-#        pip install -U pip setuptools wheel
-#        pip install maturin
-#        cd packages/pyo3
-#        cp $(Pipeline.Workspace)/cargotoml/Cargo.toml Cargo.toml
-#        maturin build --release -i python$(python_version)
+        pip install -U pip setuptools wheel
+        pip install maturin
+        cd packages/pyo3
+        cp $(Pipeline.Workspace)/cargotoml/Cargo.toml Cargo.toml
+        maturin build --release -i $(interpreter)
     - publish: target/wheels
-#      artifact: drop$(System.JobName)
-      artifact: drop
+      artifact: drop/$(System.JobName)
+#      artifact: drop
