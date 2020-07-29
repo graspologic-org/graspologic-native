@@ -2,7 +2,7 @@ jobs:
 - template: common-build.yml
 - job: signing_area
   dependsOn: python_build
-  displayName: Job After Inclusion
+  displayName: Signing Test Area
   pool:
     vmImage: "ubuntu-latest"
   steps:
