@@ -14,35 +14,35 @@ jobs:
       displayName: "Create Python Version Number"
     - publish: packages/pyo3/Cargo.toml
       artifact: cargotoml
-- job: cred_scan
-  dependsOn: build_identity
-  displayName: Cred Scan
-  pool:
-    vmImage: "windows-latest"
-  steps:
-    - task: CredScan@3
-      displayName: 'Run CredScan'
-      inputs:
-        outputFormat: sarif
-        debugMode: false
-- job: rust_build
-  dependsOn: cred_scan
-  displayName: Rust Build
-  pool:
-    vmImage: "ubuntu-latest"
-  steps:
-    - task: Rust@1
-      inputs:
-        installNightly: true
-    - script: |
-        cd packages/network_partitions
-        cargo test
-        cd ../packages/cli
-        cargo test
-        cargo build --release
+#- job: cred_scan
+#  dependsOn: build_identity
+#  displayName: Cred Scan
+#  pool:
+#    vmImage: "windows-latest"
+#  steps:
+#    - task: CredScan@3
+#      displayName: 'Run CredScan'
+#      inputs:
+#        outputFormat: sarif
+#        debugMode: false
+#- job: rust_build
+#  dependsOn: cred_scan
+#  displayName: Rust Build
+#  pool:
+#    vmImage: "ubuntu-latest"
+#  steps:
+#    - task: Rust@1
+#      inputs:
+#        installNightly: true
+#    - script: |
+#        cd packages/network_partitions
+#        cargo test
+#        cd ../packages/cli
+#        cargo test
+#        cargo build --release
 - job: python_build
   displayName: Python Build
-  dependsOn: rust_build
+#  dependsOn: rust_build
   strategy:
     matrix:
 #      linux_p36:
@@ -88,7 +88,7 @@ jobs:
         pip install maturin
         cd packages/pyo3
         cp $(Pipeline.Workspace)/cargotoml/Cargo.toml Cargo.toml
-        maturin build --release -i $(python_version)
+        maturin build --release -i python$(python_version)
     - publish: target/wheels
 #      artifact: drop$(System.JobName)
       artifact: drop
