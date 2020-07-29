@@ -52,18 +52,18 @@ jobs:
 #      linux_p37:
 #        os: "ubuntu-latest"
 #        python_version: "3.7"
-      linux_p38:
-        os: "ubuntu-latest"
-        python_version: "3.8"
+#      linux_p38:
+#        os: "ubuntu-latest"
+#        python_version: "3.8"
 #      mac_p36:
 #        os: "macos-latest"
 #        python_version: "3.6"
 #      mac_p37:
 #        os: "macos-latest"
 #        python_version: "3.7"
-      mac_p38:
-        os: "macos-latest"
-        python_version: "3.8"
+#      mac_p38:
+#        os: "macos-latest"
+#        python_version: "3.8"
 #      windows_p36:
 #        os: "windows-latest"
 #        python_version: "3.6"
@@ -85,11 +85,12 @@ jobs:
       inputs:
         versionSpec: $(python_version)
     - script: |
-        pip install -U pip setuptools wheel
-        pip install maturin
-        cd packages/pyo3
-        cp $(Pipeline.Workspace)/cargotoml/Cargo.toml Cargo.toml
-        maturin build --release -i python$(python_version)
+        py -0
+#        pip install -U pip setuptools wheel
+#        pip install maturin
+#        cd packages/pyo3
+#        cp $(Pipeline.Workspace)/cargotoml/Cargo.toml Cargo.toml
+#        maturin build --release -i python$(python_version)
     - publish: target/wheels
 #      artifact: drop$(System.JobName)
       artifact: drop
