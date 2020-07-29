@@ -1,6 +1,6 @@
 jobs:
 - template: common-build.yml
-- job: signing-area
+- job: signing_area
   dependsOn: python_build
   displayName: Job After Inclusion
   pool:
