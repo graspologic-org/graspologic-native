@@ -1,0 +1,12 @@
+jobs:
+- template: common-build.yml
+- job: signing-area
+  dependsOn: python_build
+  displayName: Job After Inclusion
+  pool:
+    vmImage: "ubuntu-latest"
+  steps:
+    - download: current
+      patterns: '**/*.whl'
+    - script: |
+        ls -R
