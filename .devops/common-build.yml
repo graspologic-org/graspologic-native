@@ -43,6 +43,7 @@ jobs:
 - job: python_build
   displayName: Python Build
 #  dependsOn: rust_build
+  dependsOn: build_identity
   strategy:
     matrix:
 #      linux_p36:
