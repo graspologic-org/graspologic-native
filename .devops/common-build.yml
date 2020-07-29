@@ -88,7 +88,7 @@ jobs:
         pip install maturin
         cd packages/pyo3
         cp $(Pipeline.Workspace)/cargotoml/Cargo.toml Cargo.toml
-        maturin build --release
+        maturin build --release -i $(python_version)
     - publish: target/wheels
-      artifact: drop$(System.JobName)
- 
+#      artifact: drop$(System.JobName)
+      artifact: drop
