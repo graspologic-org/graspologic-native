@@ -81,7 +81,7 @@ jobs:
       windows_p38:
         os: "windows-latest"
         python_version: "3.8"
-        interpreter: "py -3.8-64"
+        interpreter: "py-3.8-64"
   pool:
     vmImage: $(os)
   steps:
