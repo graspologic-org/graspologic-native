@@ -73,15 +73,15 @@ jobs:
 #      windows_p36:
 #        os: "windows-latest"
 #        python_version: "3.6"
-#        interpreter: "3.6-64"
+#        interpreter: "-3.6-64"
 #      windows_p37:
 #        os: "windows-latest"
 #        python_version: "3.7"
-#        interpreter: "3.7-64"
+#        interpreter: "-3.7-64"
       windows_p38:
         os: "windows-latest"
         python_version: "3.8"
-        interpreter: "3.8-64"
+        interpreter: "-3.8-64"
   pool:
     vmImage: $(os)
   steps:
@@ -100,5 +100,5 @@ jobs:
         cp $(Pipeline.Workspace)/cargotoml/Cargo.toml Cargo.toml
         maturin build --release -i $(interpreter)
     - publish: target/wheels
-      artifact: drop/$(System.JobName)
+      artifact: drop$(System.JobName)
 #      artifact: drop
