@@ -4,6 +4,7 @@
 use super::errors::CoreError;
 use super::safe_vectors::SafeVectors;
 use std::collections::HashMap;
+use std::ops::Index;
 
 /// Clustering is not a great abstraction; the details of it are purposefully spilled to the
 /// clustering algorithm for optimal computational runtime, but it's important to note that the
@@ -211,6 +212,23 @@ impl From<Clustering> for HashMap<usize, usize> {
             map.insert(i, clustering.node_to_cluster_mapping[i]);
         }
         return map;
+    }
+}
+
+impl IntoIterator for Clustering {
+    type Item = usize;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.node_to_cluster_mapping.into_iter()
+    }
+}
+
+impl Index<usize> for Clustering {
+    type Output = usize;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.node_to_cluster_mapping[index]
     }
 }
 

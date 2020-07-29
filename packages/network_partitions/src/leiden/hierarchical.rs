@@ -4,7 +4,6 @@ use crate::clustering::Clustering;
 use crate::errors::CoreError;
 use crate::network::Network;
 use super::leiden::leiden;
-use std::collections::VecDeque;
 
 pub const MAX_CLUSTER_SIZE: u32 = 1000;
 
