@@ -45,30 +45,30 @@ jobs:
   dependsOn: rust_build
   strategy:
     matrix:
-      linux_p36: 
-        os: "ubuntu-latest"
-        python_version: "3.6"
-      linux_p37:
-        os: "ubuntu-latest"
-        python_version: "3.7"
+#      linux_p36:
+#        os: "ubuntu-latest"
+#        python_version: "3.6"
+#      linux_p37:
+#        os: "ubuntu-latest"
+#        python_version: "3.7"
       linux_p38:
         os: "ubuntu-latest"
         python_version: "3.8"
-      mac_p36:
-        os: "macos-latest"
-        python_version: "3.6"
-      mac_p37:
-        os: "macos-latest"
-        python_version: "3.7"
+#      mac_p36:
+#        os: "macos-latest"
+#        python_version: "3.6"
+#      mac_p37:
+#        os: "macos-latest"
+#        python_version: "3.7"
       mac_p38:
         os: "macos-latest"
         python_version: "3.8"
-      windows_p36:
-        os: "windows-latest"
-        python_version: "3.6"
-      windows_p37:
-        os: "windows-latest"
-        python_version: "3.7"
+#      windows_p36:
+#        os: "windows-latest"
+#        python_version: "3.6"
+#      windows_p37:
+#        os: "windows-latest"
+#        python_version: "3.7"
       windows_p38:
         os: "windows-latest"
         python_version: "3.8"
