@@ -9,4 +9,5 @@ jobs:
     - download: current
       patterns: '**/*.whl'
     - script: |
-        ls -R
+        echo "$(Pipeline.Workspace)"
+        ls -R $(Pipeline.Workspace)
