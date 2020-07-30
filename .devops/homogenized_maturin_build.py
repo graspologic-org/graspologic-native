@@ -43,7 +43,6 @@ if __name__ == "__main__":
     interpreter = detect(sys.argv[1], execute())
     results = subprocess.run(
         ["maturin", "build", "--release", "-i", interpreter],
-        encoding="cp437",
         capture_output=True
     )
     print(results.stdout)
