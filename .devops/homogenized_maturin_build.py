@@ -36,11 +36,13 @@ def detect(
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
+        print(f"Not sure what is up: {sys.argv}")
         exit(-1)
     interpreter = detect(sys.argv[2], execute())
     results = subprocess.run(["maturin", "build", "--release", "-i", interpreter], text=True, capture_output=True)
     print(results.stdout)
     if len(results.stderr) != 0:
+        print(results.stdout, file=sys.stdout)
         print(results.stderr, file=sys.stderr)
     exit(results.returncode)
 
