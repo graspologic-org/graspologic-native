@@ -89,7 +89,7 @@ jobs:
         pip install maturin
         cd packages/pyo3
         cp $(Pipeline.Workspace)/cargotoml/Cargo.toml Cargo.toml
-        python homogenized_maturin_build.py $(python_version)
+        python $(Pipeline.Workspace)/.devops/homogenized_maturin_build.py $(python_version)
 #        maturin build --release -i '$(interpreter)'
     - publish: target/wheels
       artifact: drop$(System.JobName)

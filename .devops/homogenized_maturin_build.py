@@ -9,7 +9,7 @@ def execute() -> str:
 
     if results.returncode != 0:
         print(
-            f"Something happened when executing {' '.join(maturin_list_interpreters)}\n\tSTDERR: {results.stderr}",
+            f"Something happened when executing {' '.join(maturin_list_interpreters)}\n\tSTDERR: {results.stderr}\n\tSTDOUT: {results.stdout}",
             file=sys.stderr
         )
         exit(-1)
