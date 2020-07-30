@@ -5,7 +5,7 @@ import subprocess
 def execute() -> str:
     maturin_list_interpreters = ["maturin", "list-python"]
 
-    results = subprocess.run(maturin_list_interpreters, capture_output=True, encoding="utf16", errors="replace")
+    results = subprocess.run(maturin_list_interpreters, capture_output=True, encoding="cp437", errors="replace")
 
     if results.returncode != 0:
         print(
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     interpreter = detect(sys.argv[1], execute())
     results = subprocess.run(
         ["maturin", "build", "--release", "-i", interpreter],
-        encoding="utf16",
+        encoding="cp437",
         capture_output=True
     )
     print(results.stdout)
