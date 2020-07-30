@@ -20,8 +20,7 @@ def detect(
     python_major_minor: str,
     maturin_output: str
 ) -> str:
-    search_sequence = b" - CPython {python_major_minor} at "
-    search_sequence_length = len(search_sequence)
+    search_sequence = " - CPython {python_major_minor} at "
     lines = maturin_output.split("\n")
     matches = []
     for line in lines:
