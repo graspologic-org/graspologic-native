@@ -24,12 +24,15 @@ def detect(
     lines = maturin_output.split("\n")
     matches = []
     for line in lines:
-        if line.startswith(f"{search_sequence}"):
+        if line.startswith(search_sequence):
             matches.append(line.replace(search_sequence, "").strip())
 
-    if len(matches) != 1:
+    if len(matches) > 1:
         print(f"We found more than one match meeting our major.minor criteria: {python_major_minor}", file=sys.stderr)
         print(f"Interpreters found that match: {matches}")
+        exit(-1)
+    elif len(matches) == 0:
+        print("We were not able to extract any matches meeting our major.minor criteria: {mython_major_minor} from {maturin_output}", file=sys.stderr)
         exit(-1)
     return matches[0]
 
