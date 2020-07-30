@@ -48,14 +48,16 @@ if __name__ == "__main__":
         errors="ignore"
     )
 
+    build_stdout = results.stdout.encode("utf8", errors="ignore")
+    build_stderr = results.stderr.encode("utf8", errors="ignore")
     if results.returncode == 0:
-        print(results.stdout, file=sys.stdout)
+        print(build_stdout, file=sys.stdout)
     else:
         if results.stdout == results.stderr:
-            print(results.stderr, file=sys.stderr)
+            print(build_stderr, file=sys.stderr)
         else:
-            print(f"STDOUT: {results.stdout}", file=sys.stdout)
-            print(f"STDERR: {results.stderr}", file=sys.stderr)
+            print(f"STDOUT: {build_stdout}", file=sys.stdout)
+            print(f"STDERR: {build_stderr}", file=sys.stderr)
     exit(results.returncode)
 
 
