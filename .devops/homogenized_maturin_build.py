@@ -20,7 +20,7 @@ def detect(
     python_major_minor: str,
     maturin_output: str
 ) -> str:
-    search_sequence = " - CPython {python_major_minor} at "
+    search_sequence = f" - CPython {python_major_minor} at "
     lines = maturin_output.split("\n")
     matches = []
     for line in lines:
@@ -32,7 +32,7 @@ def detect(
         print(f"Interpreters found that match: {matches}")
         exit(-1)
     elif len(matches) == 0:
-        print("We were not able to extract any matches meeting our major.minor criteria: {mython_major_minor} from {maturin_output}", file=sys.stderr)
+        print(f"We were not able to extract any matches meeting our major.minor criteria: {python_major_minor} from {maturin_output}", file=sys.stderr)
         exit(-1)
     return matches[0]
 
