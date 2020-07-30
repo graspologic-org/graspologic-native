@@ -5,7 +5,7 @@ import subprocess
 def execute() -> str:
     maturin_list_interpreters = ["maturin", "list-python"]
 
-    results = subprocess.run(maturin_list_interpreters, capture_output=True, encoding="UTF-8")
+    results = subprocess.run(maturin_list_interpreters, capture_output=True, text=True, errors="replace")
 
     if results.returncode != 0:
         print(
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     interpreter = detect(sys.argv[1], execute())
     results = subprocess.run(
         ["maturin", "build", "--release", "-i", interpreter],
-        encoding="UTF-8",
+        text=True,
         capture_output=True
     )
     print(results.stdout)
@@ -53,37 +53,38 @@ if __name__ == "__main__":
             print(f"STDERR: {results.stderr}", file=sys.stderr)
     exit(results.returncode)
 
-import unittest
 
-
-class TestInterpreters(unittest.TestCase):
-
-    def test_windows(self):
-        maturin_output_capture = """🐍 4 python interpreter found:
- - CPython 3.8 at C:\hostedtoolcache\windows\Python\3.8.5\x64\python.exe
- - CPython 3.7 at C:\hostedtoolcache\windows\Python\3.7.8\x64\python.exe
- - CPython 3.6 at C:\hostedtoolcache\windows\Python\3.6.8\x64\python.exe
- - CPython 3.5 at C:\hostedtoolcache\windows\Python\3.5.4\x64\python.exe
-"""
-        expected = "C:\hostedtoolcache\windows\Python\3.8.5\x64\python.exe"
-        results = detect("3.8", maturin_output_capture)
-        self.assertEqual(expected, results)
-
-    def test_macos(self):
-        maturin_output_capture = """🐍 1 python interpreter found:
- - CPython 3.8 at python3.8
-
-"""
-        expected = "python3.8"
-        results = detect("3.8", maturin_output_capture)
-        self.assertEqual(expected, results)
-
-    def test_linux(self):
-        maturin_output_capture = """🐍 2 python interpreter found:
- - CPython 3.6m at python3.6
- - CPython 3.8 at python3.8
-
-"""
-        expected = "python3.8"
-        results = detect("3.8", maturin_output_capture)
-        self.assertEqual(expected, results)
+# import unittest
+#
+#
+# class TestInterpreters(unittest.TestCase):
+#
+#     def test_windows(self):
+#         maturin_output_capture = """🐍 4 python interpreter found:
+#  - CPython 3.8 at C:\hostedtoolcache\windows\Python\3.8.5\x64\python.exe
+#  - CPython 3.7 at C:\hostedtoolcache\windows\Python\3.7.8\x64\python.exe
+#  - CPython 3.6 at C:\hostedtoolcache\windows\Python\3.6.8\x64\python.exe
+#  - CPython 3.5 at C:\hostedtoolcache\windows\Python\3.5.4\x64\python.exe
+# """
+#         expected = "C:\hostedtoolcache\windows\Python\3.8.5\x64\python.exe"
+#         results = detect("3.8", maturin_output_capture)
+#         self.assertEqual(expected, results)
+#
+#     def test_macos(self):
+#         maturin_output_capture = """🐍 1 python interpreter found:
+#  - CPython 3.8 at python3.8
+#
+# """
+#         expected = "python3.8"
+#         results = detect("3.8", maturin_output_capture)
+#         self.assertEqual(expected, results)
+#
+#     def test_linux(self):
+#         maturin_output_capture = """🐍 2 python interpreter found:
+#  - CPython 3.6m at python3.6
+#  - CPython 3.8 at python3.8
+#
+# """
+#         expected = "python3.8"
+#         results = detect("3.8", maturin_output_capture)
+#         self.assertEqual(expected, results)
