@@ -1,11 +1,16 @@
 import sys
 import subprocess
 
-
 def execute() -> str:
     maturin_list_interpreters = ["maturin", "list-python"]
 
-    results = subprocess.run(maturin_list_interpreters, capture_output=True, encoding="utf8", errors="ignore")
+    results = subprocess.run(
+        maturin_list_interpreters,
+        encoding="utf8",
+        errors="ignore",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
 
     if results.returncode != 0:
         print(
@@ -43,26 +48,15 @@ if __name__ == "__main__":
     interpreter = detect(sys.argv[1], execute())
     results = subprocess.run(
         ["maturin", "build", "--release", "-i", interpreter],
-        capture_output=True
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
     )
 
     build_stdout = results.stdout.decode(
-        "utf8",
-        errors="ignore"
-    ).encode(
-        "cp1252",
-        errors="ignore"
-    ).decode(
         "cp1252",
         errors="ignore"
     )
     build_stderr = results.stderr.decode(
-        "utf8",
-        errors="ignore"
-    ).encode(
-        "cp1252",
-        errors="ignore"
-    ).decode(
         "cp1252",
         errors="ignore"
     )
