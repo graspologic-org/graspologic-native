@@ -43,9 +43,7 @@ if __name__ == "__main__":
     interpreter = detect(sys.argv[1], execute())
     results = subprocess.run(
         ["maturin", "build", "--release", "-i", interpreter],
-        capture_output=True,
-        encoding="utf8",
-        errors="ignore"
+        capture_output=True
     )
 
     build_stdout = results.stdout.decode("utf8", errors="ignore")
