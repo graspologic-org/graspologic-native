@@ -46,8 +46,8 @@ if __name__ == "__main__":
         capture_output=True
     )
 
-    build_stdout = results.stdout.decode("utf8", errors="ignore")
-    build_stderr = results.stderr.decode("utf8", errors="ignore")
+    build_stdout = results.stdout.decode("utf8", errors="ignore").encode("cp1252")
+    build_stderr = results.stderr.decode("utf8", errors="ignore").encode("cp1252")
     if results.returncode == 0:
         print(build_stdout, file=sys.stdout)
     else:
