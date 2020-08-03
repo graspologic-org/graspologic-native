@@ -25,12 +25,15 @@ def detect(
     python_major_minor: str,
     maturin_output: str
 ) -> str:
-    search_sequence = f" - CPython {python_major_minor} at "
+    search_sequence1 = f" - CPython {python_major_minor} at "
+    search_sequence2 = f" - CPython {python_major_minor}m at "
     lines = maturin_output.split("\n")
     matches = []
     for line in lines:
-        if line.startswith(search_sequence):
-            matches.append(line.replace(search_sequence, "").strip())
+        if line.startswith(search_sequence1):
+            matches.append(line.replace(search_sequence1, "").strip())
+        elif line.startswith(search_sequence2):
+            matches.append(line.replace(search_sequence2, "").strip())
 
     if len(matches) > 1:
         print(f"We found more than one match meeting our major.minor criteria: {python_major_minor}", file=sys.stderr)
