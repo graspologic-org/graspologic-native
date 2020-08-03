@@ -48,8 +48,8 @@ if __name__ == "__main__":
         errors="ignore"
     )
 
-    build_stdout = results.stdout.encode("utf8", errors="ignore")
-    build_stderr = results.stderr.encode("utf8", errors="ignore")
+    build_stdout = results.stdout.decode("utf8", errors="ignore")
+    build_stderr = results.stderr.decode("utf8", errors="ignore")
     if results.returncode == 0:
         print(build_stdout, file=sys.stdout)
     else:
