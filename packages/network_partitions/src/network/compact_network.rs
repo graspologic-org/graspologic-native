@@ -68,9 +68,6 @@
 /// The EdgeId is the direct index into the edges array for fast lookups of a specific edge,
 /// which is primarily useful to the subnetwork generation functions
 
-use bumpalo::Bump;
-use bumpalo::collections::Vec as BumpVec;
-
 use crate::clustering::Clustering;
 use std::ops::Range;
 use std::collections::HashMap;
@@ -99,29 +96,41 @@ pub struct CompactNeighborItem {
 }
 
 #[derive(Debug)]
-pub struct CompactNetwork<'a> {
-    nodes: BumpVec<'a, CompactNode>,
-    neighbors: BumpVec<'a, CompactNeighbor>,
+pub struct CompactNetwork {
+    nodes: Vec<CompactNode>,
+    neighbors: Vec<CompactNeighbor>,
+    total_self_links_edge_weight: f64,
 }
 
 #[derive(Debug)]
-pub struct CompactSubnetwork<'a> {
-    compact_network: CompactNetwork<'a>,
-    node_id_map: BumpVec<'a, CompactNodeId>, // the subnetwork will get its own node IDs, and this vec will allow us to map back to the original
+pub struct CompactSubnetwork {
+    compact_network: CompactNetwork,
+    node_id_map: Vec<CompactNodeId>, // the subnetwork will get its own node IDs, and this vec will allow us to map back to the original
 }
 
 #[derive(Debug)]
-pub struct CompactSubnetworkItem<'a> {
+pub struct CompactSubnetworkItem {
     id: ClusterId,
-    subnetwork: CompactSubnetwork<'a>,
+    subnetwork: CompactSubnetwork,
 }
 
-impl<'a> CompactNetwork<'a> {
+impl CompactNetwork {
 
-    pub fn from(nodes: BumpVec<'a, CompactNode>, neighbors: BumpVec<'a, CompactNeighbor>) -> CompactNetwork<'a> {
+    fn clear(&mut self) {
+        self.total_self_links_edge_weight = 0_f64;
+        self.nodes.clear();
+        self.neighbors.clear();
+    }
+
+    pub fn from(
+        nodes: Vec<CompactNode>,
+        neighbors: Vec<CompactNeighbor>,
+        total_self_links_edge_weight: f64,
+    ) -> CompactNetwork {
         return CompactNetwork {
             nodes,
-            neighbors
+            neighbors,
+            total_self_links_edge_weight
         };
     }
 
@@ -151,39 +160,52 @@ impl<'a> CompactNetwork<'a> {
         };
     }
 
-    pub fn subnetworks_iter<'b, 'c: 'a>(
-        &self,
+    pub fn subnetworks_iter<'a, 'b>(
+        self,
         clustering: &'b Clustering,
         subnetwork_minimum_size: Option<u32>
     ) -> SubnetworkIterator<'a, 'b> {
         let working_map: HashMap<CompactNodeId, CompactNodeId> = HashMap::with_capacity(clustering.next_cluster_id());
         let num_nodes_per_cluster: Vec<usize> = clustering.num_nodes_per_cluster();
-        let subnetwork_bump_arena: Bump = Bump::new(); // something to try someday; pre-allocating based on projected sizes?  We should be able to determine maximum size based on self.
-        let mut nodes_by_cluster: BumpVec<(ClusterId, BumpVec<CompactNodeId>)> = BumpVec::with_capacity_in(
-            clustering.next_cluster_id(),
-            &subnetwork_bump_arena
-        );
+        let mut nodes_by_cluster: Vec<(ClusterId, Vec<CompactNodeId>)> = Vec::with_capacity(clustering.next_cluster_id());
+        let mut largest_cluster: usize = 0;
         for cluster_id in 0..clustering.next_cluster_id() {
-            let cluster_count = num_nodes_per_cluster[cluster_id];
-            nodes_by_cluster.push((cluster_id, BumpVec::with_capacity_in(cluster_count, &subnetwork_bump_arena)));
+            let cluster_count: usize = num_nodes_per_cluster[cluster_id];
+            largest_cluster = largest_cluster.max(cluster_count);
+            nodes_by_cluster.push((cluster_id, Vec::with_capacity(cluster_count)));
         }
 
-        for (node, cluster) in clustering.into_iter().enumerate() {
+        for (node, cluster) in &clustering.into_iter().enumerate() {
             nodes_by_cluster[cluster].1.push(node);
         }
+        let self_ref: &'a CompactNetwork = &self;
 
         return SubnetworkIterator {
-            compact_supernetwork: &self,
+            compact_supernetwork: self_ref,
             clustering,
             clustered_nodes: nodes_by_cluster,
             current_clustered_nodes_index: 0,
-            subnetwork_bump_arena,
+            subnetwork: CompactSubnetwork {
+                compact_network: CompactNetwork::from(
+                    Vec::with_capacity(largest_cluster),
+                    Vec::new(),
+                    0_f64
+                ),
+                node_id_map: Vec::with_capacity(largest_cluster),
+            },
             original_node_to_new_node_map: working_map
         };
     }
 }
 
-impl<'a> IntoIterator for &'a CompactNetwork<'a> {
+impl CompactSubnetwork {
+    fn clear(&mut self) {
+        self.node_id_map.clear();
+        self.compact_network.clear();
+    }
+}
+
+impl<'a> IntoIterator for &'a CompactNetwork {
     type Item = CompactNodeItem<'a>;
     type IntoIter = NodeIterator<'a>;
 
@@ -196,7 +218,7 @@ impl<'a> IntoIterator for &'a CompactNetwork<'a> {
 }
 
 pub struct NodeIterator<'a> {
-    compact_network: &'a CompactNetwork<'a>,
+    compact_network: &'a CompactNetwork,
     current_node: CompactNodeId,
 }
 
@@ -215,7 +237,7 @@ impl<'a> Iterator for NodeIterator<'a> {
 
 #[derive(Debug)]
 pub struct NeighborIterator<'a> {
-    compact_network: &'a CompactNetwork<'a>,
+    compact_network: &'a CompactNetwork,
     neighbor_range: Range<ConnectionId>,
     current_neighbor: ConnectionId,
 }
@@ -240,32 +262,27 @@ impl<'a> Iterator for NeighborIterator<'a> {
 }
 
 pub struct SubnetworkIterator<'a, 'b> {
-    compact_supernetwork: &'a CompactNetwork<'a>, // original data to project a new subnetwork from
+    compact_supernetwork: &'a CompactNetwork, // original data to project a new subnetwork from
     clustering: &'b Clustering,
-    clustered_nodes: BumpVec<'a, (ClusterId, BumpVec<'a, CompactNodeId>)>,
+    clustered_nodes: Vec<(ClusterId, Vec<CompactNodeId>)>,
     current_clustered_nodes_index: usize, // current clustered nodes to process.  Note that this index does not necessarily imply it is the ClusterId.
-    subnetwork_bump_arena: Bump, // this is a new bump arena, not to be confused with the supernetwork's bump arena
+    subnetwork: CompactSubnetwork,
     original_node_to_new_node_map: HashMap<CompactNodeId, CompactNodeId>,
 }
 
 impl<'a, 'b> Iterator for SubnetworkIterator<'a, 'b> {
-    type Item = CompactSubnetworkItem<'b>;
+    type Item = CompactSubnetworkItem;
     fn next(&mut self) -> Option<Self::Item> {
-        self.subnetwork_bump_arena.reset(); // clear the previous memory usage in the bump arena
+        self.subnetwork.clear(); // clear the previous memory usage in the bump arena
         self.original_node_to_new_node_map.clear(); // do the same in our lookup map
         return if self.current_clustered_nodes_index == self.clustered_nodes.len() {
             None
         } else {
             let (cluster_id, nodes) = &self.clustered_nodes[self.current_clustered_nodes_index];
 
-            // all 3 of these are in the bump arena and will be wiped out the next time we ask for a next() or when the bump arena itself is freed.
-            let mut subnetwork_nodes: BumpVec<CompactNode> = bumpalo::vec![
-                in &self.subnetwork_bump_arena;
-                (0_f64, 0);
-                nodes.len()
-            ]; // in the bump arena, nodes.len() space AND make the values default to (0_f64, 0)
-            let mut subnetwork_neighbors: BumpVec<CompactNeighbor> = BumpVec::new_in(&self.subnetwork_bump_arena); // we can't know this size in advance
-            let mut subnetwork_node_map: BumpVec<CompactNodeId> = BumpVec::with_capacity_in(nodes.len(), &self.subnetwork_bump_arena); // we can know this size though
+            let mut subnetwork_nodes: Vec<CompactNode> = vec![(0_f64, 0); nodes.len()];
+            let mut subnetwork_neighbors: Vec<CompactNeighbor> = vec![]; // we can't know this size in advance
+            let mut subnetwork_node_map: Vec<CompactNodeId> = Vec::with_capacity(nodes.len()); // we can know this size though
 
             let mut current_new_node_id: usize = 0;
             for subnetwork_node in nodes {
@@ -297,7 +314,7 @@ impl<'a, 'b> Iterator for SubnetworkIterator<'a, 'b> {
                 current_new_node_id += 1;
             }
 
-            let compact_network: CompactNetwork = CompactNetwork::from(subnetwork_nodes, subnetwork_neighbors);
+            let compact_network: CompactNetwork = CompactNetwork::from(subnetwork_nodes, subnetwork_neighbors, 0_f64);
             let subnetwork: CompactSubnetwork = CompactSubnetwork {
                 compact_network,
                 node_id_map: subnetwork_node_map
@@ -310,21 +327,16 @@ impl<'a, 'b> Iterator for SubnetworkIterator<'a, 'b> {
                 }
             )
         }
-
     }
 }
 
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use bumpalo::collections::Vec as BumpVec;
 
     #[test]
     fn test_stuff() {
-        let bump_arena: Bump = Bump::new();
-        println!("Bump Arena Allocated Bytes: {:#?}", bump_arena.allocated_bytes());
-        let neighbors: BumpVec<CompactNeighbor> = bumpalo::vec![
-            in &bump_arena;
+        let neighbors: Vec<CompactNeighbor> = vec![
             (1, 3.0),
             (2, 2.1),
             (0, 3.0),
@@ -332,17 +344,16 @@ pub mod tests {
             (0, 2.1),
             (1, 5.0)
         ];
-        let nodes: BumpVec<CompactNode> = bumpalo::vec![
-            in &bump_arena;
+        let nodes: Vec<CompactNode> = vec![
             (1.0, 0),
             (2.0, 2),
             (1.0, 4),
         ];
         let compact_network: CompactNetwork = CompactNetwork {
             nodes,
-            neighbors
+            neighbors,
+            total_self_links_edge_weight: 0_f64,
         };
-        println!("Bump Arena Allocated Bytes: {:#?}", bump_arena.allocated_bytes());
 
         for CompactNodeItem {id: node_id, weight: node_weight, neighbors: neighbor_iter} in &compact_network {
             println!("Node ID: {}", node_id);

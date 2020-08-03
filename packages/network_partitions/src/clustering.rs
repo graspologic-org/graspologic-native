@@ -215,11 +215,11 @@ impl From<Clustering> for HashMap<usize, usize> {
     }
 }
 
-impl IntoIterator for Clustering {
-    type Item = usize;
+impl<'a> IntoIterator for &'a Clustering {
+    type Item = &'a usize;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
-    fn into_iter(self) -> Self::IntoIter {
+    fn into_iter(&self) -> Self::IntoIter {
         self.node_to_cluster_mapping.into_iter()
     }
 }

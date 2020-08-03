@@ -10,11 +10,9 @@ description = "Leiden community detection as per https://arxiv.org/abs/1810.0847
 rand = "0.7"
 rayon = "1.1"
 chrono = { version = "0.4", optional = true }
-bumpalo = "3.4.0"
 
 [dev-dependencies]
 rand_xorshift = "0.2"
 
 [features]
-default = ["bumpalo/collections"]
 logging = ["chrono"]
