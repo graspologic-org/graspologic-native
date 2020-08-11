@@ -10,6 +10,7 @@ pub use self::compact_network::CompactNetwork;
 pub use self::labeled_network::LabeledNetwork;
 
 mod compact_network;
+mod identifier;
 mod labeled_network;
 mod network;
 mod network_builder;
