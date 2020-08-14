@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-use super::identifier;
 /// A CompactNetwork is a tightly packed neighbor-optimized datastructure that defines a
 /// *undirected* Network's edges.
 ///
@@ -68,7 +67,10 @@ use super::identifier;
 ///
 /// The EdgeId is the direct index into the edges array for fast lookups of a specific edge,
 /// which is primarily useful to the subnetwork generation functions
-use crate::clustering::{ClusterItem, Clustering};
+use super::identifier;
+use super::networks::NetworkDetails;
+use crate::clustering::Clustering;
+use crate::errors::CoreError;
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -85,14 +87,28 @@ pub type CompactNeighbor = (CompactNodeId, f64);
 pub struct CompactNodeItem<'a> {
     pub id: CompactNodeId,
     pub weight: f64,
-    pub neighbors: NeighborIterator<'a>,
+    compact_network: &'a CompactNetwork,
+}
+
+impl<'a> CompactNodeItem<'a> {
+    pub fn neighbors(&self) -> NeighborIterator<'a> {
+        // make the neighbor iterator here, not on compactnodeitem creation
+        let neighbor_range: Range<ConnectionId> = self.compact_network.neighbor_range(self.id);
+        let neighbor_start: ConnectionId = neighbor_range.start;
+        return NeighborIterator {
+            compact_network: self.compact_network,
+            neighbor_range,
+            current_neighbor: neighbor_start,
+        };
+    }
 }
 
 #[derive(Debug)]
 pub struct CompactNeighborItem {
-    pub id: ConnectionId,
-    pub neighbor_id: CompactNodeId,
+    pub connection_id: ConnectionId, // may be unnecessary
+    pub id: CompactNodeId,
     pub edge_weight: f64,
+    pub node_weight: f64,
 }
 
 #[derive(Debug, PartialEq)]
@@ -104,14 +120,14 @@ pub struct CompactNetwork {
 
 #[derive(Debug, PartialEq)]
 pub struct CompactSubnetwork {
-    compact_network: CompactNetwork,
-    node_id_map: Vec<CompactNodeId>, // the subnetwork will get its own node IDs, and this vec will allow us to map back to the original
+    pub compact_network: CompactNetwork,
+    pub node_id_map: Vec<CompactNodeId>, // the subnetwork will get its own node IDs, and this vec will allow us to map back to the original
 }
 
 #[derive(Debug, PartialEq)]
 pub struct CompactSubnetworkItem {
-    id: ClusterId,
-    subnetwork: CompactSubnetwork,
+    pub id: ClusterId,
+    pub subnetwork: CompactSubnetwork,
 }
 
 impl CompactNetwork {
@@ -145,28 +161,63 @@ impl CompactNetwork {
         id: CompactNodeId,
     ) -> CompactNodeItem {
         let weight: &f64 = &self.nodes[id].0;
+        return CompactNodeItem {
+            id,
+            weight: *weight,
+            compact_network: self,
+        };
+    }
+
+    pub fn neighbors_for(
+        &self,
+        id: CompactNodeId,
+    ) -> NeighborIterator {
         let neighbor_range: Range<ConnectionId> = self.neighbor_range(id);
         let neighbor_start: ConnectionId = neighbor_range.start;
-        let neighbors = NeighborIterator {
+        return NeighborIterator {
             compact_network: self,
             neighbor_range,
             current_neighbor: neighbor_start,
         };
-        return CompactNodeItem {
-            id,
-            weight: *weight,
-            neighbors,
-        };
     }
 
-    pub fn subnetworks_iter<'a, 'b>(
-        &'a self,
-        clustering: &'b Clustering,
+    pub fn node_weight(
+        &self,
+        id: CompactNodeId,
+    ) -> f64 {
+        return self.nodes[id].0;
+    }
+
+    pub fn node_weights(&self) -> Vec<f64> {
+        return self.nodes.iter().map(|(weight, _)| *weight).collect();
+    }
+
+    pub fn total_edge_weight_per_node(&self) -> Vec<f64> {
+        // when using modularity, this should return the exact same as node_weights.
+        return self
+            .nodes
+            .iter()
+            .map(|(_, node_id)| {
+                self.neighbors_for(*node_id)
+                    .map(|neighbor| neighbor.edge_weight)
+                    .sum::<f64>()
+            })
+            .collect();
+    }
+
+    pub fn subnetworks_iter(
+        &self,
+        clustering: Clustering,
         subnetwork_minimum_size: Option<u32>,
-    ) -> SubnetworkIterator<'a, 'b> {
+    ) -> SubnetworkIterator {
         let working_map: HashMap<CompactNodeId, CompactNodeId> =
             HashMap::with_capacity(clustering.next_cluster_id());
+
+        // TODO: For the main leiden algorithm, this semi-expensive call (num_nodes_per_cluster())
+        //  is called twice in a row (so 2 O(n) -> O(n)). It would be more ideal to memoize this,
+        //  but Clustering needs revisiting anyway and I don't want to hack this in right now
         let num_nodes_per_cluster: Vec<usize> = clustering.num_nodes_per_cluster();
+
         let mut nodes_by_cluster: Vec<(ClusterId, Vec<CompactNodeId>)> =
             Vec::with_capacity(clustering.next_cluster_id());
         let mut largest_cluster: usize = 0;
@@ -176,8 +227,8 @@ impl CompactNetwork {
             nodes_by_cluster.push((cluster_id, Vec::with_capacity(cluster_count)));
         }
 
-        for ClusterItem { node_id, cluster } in clustering {
-            nodes_by_cluster[cluster].1.push(node_id);
+        for item in &clustering {
+            nodes_by_cluster[item.cluster].1.push(item.node_id);
         }
 
         return SubnetworkIterator {
@@ -188,6 +239,87 @@ impl CompactNetwork {
             original_node_to_new_node_map: working_map,
             subnetwork_minimum_size,
         };
+    }
+
+    pub fn induce_clustering_network(
+        &self,
+        clustering: &Clustering,
+    ) -> Result<CompactNetwork, CoreError> {
+        let mut cluster_weights: Vec<f64> = vec![0_f64; clustering.next_cluster_id()];
+        let mut cluster_total_self_links_edge_weight = self.total_self_links_edge_weight();
+
+        let mut cluster_node_to_cluster_neighbors: HashMap<usize, HashMap<usize, f64>> =
+            HashMap::new();
+
+        for (node_id, (node_weight, _)) in self.nodes.iter().enumerate() {
+            let node_cluster: usize = clustering.cluster_at(node_id)?;
+            cluster_weights[node_cluster] += node_weight;
+
+            for neighbor in self.neighbors_for(node_id) {
+                let neighbor_cluster: usize = clustering.cluster_at(neighbor.id)?;
+                if node_cluster == neighbor_cluster {
+                    cluster_total_self_links_edge_weight += neighbor.edge_weight;
+                } else {
+                    // we only do single direction this time because we know we've repeated both directions in CompactNetwork on creation
+                    let cluster_to_cluster_edge_weight = cluster_node_to_cluster_neighbors
+                        .entry(node_cluster)
+                        .or_insert(HashMap::new())
+                        .entry(neighbor_cluster)
+                        .or_insert(0_f64);
+                    *cluster_to_cluster_edge_weight += neighbor.edge_weight;
+                }
+            }
+        }
+
+        let mut cluster_nodes: Vec<CompactNode> = Vec::with_capacity(clustering.next_cluster_id());
+        let mut cluster_neighbors: Vec<CompactNeighbor> = Vec::new();
+
+        for cluster in 0..clustering.next_cluster_id() {
+            cluster_nodes.push((cluster_weights[cluster], cluster_neighbors.len()));
+            let mut neighbors: Vec<(&usize, &f64)> = cluster_node_to_cluster_neighbors
+                .get(&cluster)
+                .unwrap()
+                .into_iter()
+                .collect();
+            neighbors.sort_unstable_by(|a, b| a.0.cmp(b.0));
+            cluster_neighbors.reserve(neighbors.len());
+            for (neighbor_cluster, edge_weight) in neighbors {
+                cluster_neighbors.push((*neighbor_cluster, *edge_weight));
+            }
+        }
+
+        return Ok(CompactNetwork::from(
+            cluster_nodes,
+            cluster_neighbors,
+            cluster_total_self_links_edge_weight,
+        ));
+    }
+}
+
+impl NetworkDetails for CompactNetwork {
+    fn num_nodes(&self) -> usize {
+        return self.nodes.len();
+    }
+
+    fn num_edges(&self) -> usize {
+        return (self.neighbors.len() as f64 / 2_f64) as usize;
+    }
+
+    fn total_node_weight(&self) -> f64 {
+        return self.nodes.iter().map(|node| node.0).sum::<f64>();
+    }
+
+    fn total_edge_weight(&self) -> f64 {
+        return self
+            .neighbors
+            .iter()
+            .map(|neighbor| neighbor.1)
+            .sum::<f64>()
+            / 2_f64;
+    }
+
+    fn total_self_links_edge_weight(&self) -> f64 {
+        return self.total_self_links_edge_weight;
     }
 }
 
@@ -235,9 +367,10 @@ impl<'a> Iterator for NeighborIterator<'a> {
         return if self.neighbor_range.contains(&self.current_neighbor) {
             let (neighbor_id, edge_weight) = self.compact_network.neighbors[self.current_neighbor];
             let item = CompactNeighborItem {
-                id: self.current_neighbor,
-                neighbor_id,
+                connection_id: self.current_neighbor,
+                id: neighbor_id,
                 edge_weight,
+                node_weight: self.compact_network.nodes[neighbor_id].0,
             };
             self.current_neighbor += 1;
             Some(item)
@@ -247,16 +380,16 @@ impl<'a> Iterator for NeighborIterator<'a> {
     }
 }
 
-pub struct SubnetworkIterator<'a, 'b> {
+pub struct SubnetworkIterator<'a> {
     compact_supernetwork: &'a CompactNetwork, // original data to project a new subnetwork from
-    clustering: &'b Clustering,
+    clustering: Clustering,
     clustered_nodes: Vec<(ClusterId, Vec<CompactNodeId>)>,
     current_clustered_nodes_index: usize, // current clustered nodes to process.  Note that this index does not necessarily imply it is the ClusterId.
     original_node_to_new_node_map: HashMap<CompactNodeId, CompactNodeId>,
     subnetwork_minimum_size: Option<u32>,
 }
 
-impl<'a, 'b> Iterator for SubnetworkIterator<'a, 'b> {
+impl<'a> Iterator for SubnetworkIterator<'a> {
     type Item = CompactSubnetworkItem;
     fn next(&mut self) -> Option<Self::Item> {
         self.original_node_to_new_node_map.clear(); // do the same in our lookup map
@@ -308,20 +441,15 @@ impl<'a, 'b> Iterator for SubnetworkIterator<'a, 'b> {
                     // starting neighbor position needs to be captured now
                     let neighbor_start: usize = subnetwork_neighbors.len();
 
-                    for CompactNeighborItem {
-                        neighbor_id,
-                        edge_weight,
-                        ..
-                    } in self.compact_supernetwork.node(*subnetwork_node).neighbors
-                    {
-                        if self.clustering[neighbor_id] == *cluster_id {
-                            node_weight += edge_weight;
+                    for neighbor in self.compact_supernetwork.neighbors_for(*subnetwork_node) {
+                        if self.clustering[neighbor.id] == *cluster_id {
+                            node_weight += neighbor.edge_weight;
                             let new_neighbor_id: usize = identifier::identify(
                                 &mut self.original_node_to_new_node_map,
                                 &mut subnetwork_id_map,
-                                neighbor_id,
+                                neighbor.id,
                             );
-                            subnetwork_neighbors.push((new_neighbor_id, edge_weight));
+                            subnetwork_neighbors.push((new_neighbor_id, neighbor.edge_weight));
                         }
                     }
                     subnetwork_nodes[current_new_node_id] = (node_weight, neighbor_start);
@@ -438,21 +566,13 @@ pub mod tests {
         let expected_neighbors: Vec<(CompactNodeId, f64)> =
             vec![(0, 2_f64), (2, 6_f64), (4, 1_f64), (5, 4_f64), (6, 3_f64)];
         let node = network.node(1);
-        let actual: Vec<CompactNeighborItem> = node.neighbors.into_iter().collect();
+        let actual: Vec<CompactNeighborItem> = node.neighbors().collect();
         assert_eq!(5, actual.len());
 
-        for (
-            index,
-            CompactNeighborItem {
-                neighbor_id,
-                edge_weight,
-                ..
-            },
-        ) in actual.into_iter().enumerate()
-        {
+        for (index, neighbor) in actual.into_iter().enumerate() {
             let (expected_neighbor_id, expected_edge_weight) = expected_neighbors[index];
-            assert_eq!(expected_neighbor_id, neighbor_id);
-            assert_eq!(edge_weight, expected_edge_weight);
+            assert_eq!(expected_neighbor_id, neighbor.id);
+            assert_eq!(expected_edge_weight, neighbor.edge_weight);
         }
     }
 
@@ -506,7 +626,7 @@ pub mod tests {
             },
         ];
         let actual: Vec<CompactSubnetworkItem> =
-            network.subnetworks_iter(&clustering, None).collect();
+            network.subnetworks_iter(clustering, None).collect();
         assert_eq!(expected, actual);
     }
 
@@ -553,7 +673,7 @@ pub mod tests {
             },
         ];
         let actual: Vec<CompactSubnetworkItem> =
-            network.subnetworks_iter(&clustering, Some(3)).collect();
+            network.subnetworks_iter(clustering, Some(3)).collect();
         assert_eq!(expected, actual);
     }
 }

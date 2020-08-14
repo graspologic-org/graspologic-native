@@ -3,10 +3,9 @@
 
 use std::collections::HashMap;
 
-use super::compact_network::{CompactNeighbor, CompactNode, CompactNodeId};
-use super::identifier;
-use super::CompactNetwork;
-use super::Edge;
+use super::compact_network::{CompactNeighbor, CompactNetwork, CompactNode, CompactNodeId};
+use super::networks::NetworkDetails;
+use super::{identifier, Edge};
 
 pub struct LabeledNetwork {
     network_structure: CompactNetwork,
@@ -77,11 +76,44 @@ impl LabeledNetwork {
             id_to_labels,
         };
     }
+
+    pub fn compact(&self) -> &CompactNetwork {
+        return &self.network_structure;
+    }
+
+    pub fn compact_id_for(
+        &self,
+        id: &str,
+    ) -> Option<usize> {
+        return self.labels_to_id.get(id).cloned();
+    }
+}
+
+impl NetworkDetails for LabeledNetwork {
+    fn num_nodes(&self) -> usize {
+        return self.network_structure.num_nodes();
+    }
+
+    fn num_edges(&self) -> usize {
+        return self.network_structure.num_edges();
+    }
+
+    fn total_node_weight(&self) -> f64 {
+        return self.network_structure.total_node_weight();
+    }
+
+    fn total_edge_weight(&self) -> f64 {
+        return self.network_structure.total_edge_weight();
+    }
+
+    fn total_self_links_edge_weight(&self) -> f64 {
+        return self.network_structure.total_self_links_edge_weight();
+    }
 }
 
 #[cfg(test)]
 pub mod tests {
-    use super::super::compact_network::{CompactNeighborItem, CompactNodeItem};
+    use super::super::compact_network::CompactNeighborItem;
     use super::*;
     use std::iter::FromIterator;
 
@@ -174,17 +206,14 @@ pub mod tests {
             (f, 4.0),
             (g, 3.0),
         ];
-        let CompactNodeItem {
-            weight, neighbors, ..
-        } = labeled_network.network_structure.node(b);
-        assert_eq!(16.0, weight);
-        let actual_neighbors: Vec<(usize, f64)> = neighbors
+        let node = labeled_network.network_structure.node(b);
+        assert_eq!(16.0, node.weight);
+        let actual_neighbors: Vec<(usize, f64)> = node
+            .neighbors()
             .map(
                 |CompactNeighborItem {
-                     neighbor_id,
-                     edge_weight,
-                     ..
-                 }| { (neighbor_id, edge_weight) },
+                     id, edge_weight, ..
+                 }| { (id, edge_weight) },
             )
             .collect();
         assert_eq!(expected_neighbors, actual_neighbors);

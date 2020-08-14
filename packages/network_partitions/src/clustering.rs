@@ -3,6 +3,7 @@
 
 use super::errors::CoreError;
 use super::safe_vectors::SafeVectors;
+use crate::network::CompactSubnetwork;
 use std::collections::HashMap;
 use std::ops::Index;
 
@@ -153,13 +154,12 @@ impl Clustering {
 
     pub fn merge_subnetwork_clustering(
         &mut self,
-        subnetwork_nodes: &Vec<usize>,
+        subnetwork: &CompactSubnetwork,
         subnetwork_clustering: &Clustering,
     ) {
-        for subnetwork_node_index in 0..subnetwork_nodes.len() {
-            let network_node_index: usize = subnetwork_nodes[subnetwork_node_index];
-            self.node_to_cluster_mapping[network_node_index] = self.next_cluster_id
-                + subnetwork_clustering.node_to_cluster_mapping[subnetwork_node_index];
+        for (new_id, old_id) in subnetwork.node_id_map.iter().enumerate() {
+            self.node_to_cluster_mapping[*old_id] =
+                self.next_cluster_id + subnetwork_clustering.node_to_cluster_mapping[new_id];
         }
         self.next_cluster_id += subnetwork_clustering.next_cluster_id;
     }
