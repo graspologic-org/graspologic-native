@@ -1,7 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
+use std::io::{BufReader, Read};
+use std::fs::File;
 use std::collections::HashMap;
+
+use crate::errors::NetworkError;
 
 use super::compact_network::{CompactNeighbor, CompactNetwork, CompactNode, CompactNodeId};
 use super::networks::NetworkDetails;
@@ -86,6 +90,45 @@ impl LabeledNetwork {
         id: &str,
     ) -> Option<usize> {
         return self.labels_to_id.get(id).cloned();
+    }
+
+    pub fn load_from(
+        path: &str,
+        separator: &str,
+        source_index: usize,
+        target_index: usize,
+        weight_index: Option<usize>,
+        skip_first_line: bool,
+        use_modularity: bool
+    ) -> Result<LabeledNetwork, NetworkError> {
+        let minimum_required_length: usize = source_index
+            .max(target_index)
+            .max(weight_index.unwrap_or(target_index))
+            + 1;
+        let mut reader: BufReader<File> = BufReader::new(File::open(path)?);
+        let mut contents = String::new();
+        reader.read_to_string(&mut contents)?;
+        let skip_lines: usize = if skip_first_line { 1 } else { 0 };
+        let mut edges: Vec<Edge> = Vec::new();
+        for line in contents.lines().skip(skip_lines) {
+            if !line.is_empty() {
+                let splits: Vec<&str> = line.split(separator).collect();
+                if splits.len() < minimum_required_length {
+                    return Err(NetworkError::EdgeFileFormatError);
+                }
+                let source: &str = splits[source_index];
+                let target: &str = splits[target_index];
+                let weight: f64 = match weight_index {
+                    Some(weight_index) => splits[weight_index]
+                        .parse::<f64>()
+                        .map_err(|_err| NetworkError::EdgeFileFormatError)?,
+                    None => 1_f64,
+                };
+                edges.push((source.into(), target.into(), weight));
+            }
+        }
+
+        return Ok(LabeledNetwork::from(edges, use_modularity));
     }
 }
 
