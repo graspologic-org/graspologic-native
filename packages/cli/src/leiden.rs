@@ -4,7 +4,7 @@
 use network_partitions::clustering::Clustering;
 use network_partitions::errors::CoreError;
 use network_partitions::leiden::leiden as leiden_internal;
-use network_partitions::network::{Network, NetworkBuilder};
+use network_partitions::network::prelude::*;
 use network_partitions::quality;
 
 use rand::SeedableRng;
@@ -29,21 +29,19 @@ pub fn leiden(
     skip_first_line: bool,
 ) {
     let start_instant: Instant = Instant::now();
-    let builder = NetworkBuilder::builder(use_modularity)
-        .load_from_file(
-            source_edges,
-            separator,
-            source_index,
-            target_index,
-            weight_index,
-            skip_first_line,
-        )
-        .expect("Something went wrong loading");
+    let labeled_network: LabeledNetwork = LabeledNetwork::load_from(
+        source_edges,
+        separator,
+        source_index,
+        target_index,
+        weight_index,
+        skip_first_line,
+        use_modularity
+    ).expect("Something went wrong loading");
+
+    let network: &CompactNetwork = labeled_network.compact();
+
     let loaded_file_instant: Instant = Instant::now();
-
-    let network: Network = builder.build();
-
-    let converted_network_instant: Instant = Instant::now();
 
     let mut rng: XorShiftRng = match seed {
         Some(seed) => {
@@ -54,7 +52,7 @@ pub fn leiden(
     };
 
     let result: Result<(bool, Clustering), CoreError> = leiden_internal(
-        &network,
+        network,
         None,
         Some(iterations),
         Some(resolution),
@@ -68,22 +66,16 @@ pub fn leiden(
         Ok((improved, clustering)) => {
             println!("Clustering improved?  {}", improved);
             let quality_score: f64 =
-                quality::quality(&network, &clustering, Some(resolution), use_modularity)
+                quality::quality(network, &clustering, Some(resolution), use_modularity)
                     .expect("An error occurred when determining quality");
             println!("Quality score (modularity): {:?}", quality_score);
             println!("Output to {}", output_path);
 
             let mut output_file: File =
                 File::create(output_path).expect("Unable to open output file for writing");
-            for node_index in 0..clustering.num_nodes() {
-                let cluster: usize = clustering
-                    .cluster_at(node_index)
-                    .expect("Couldn't find a cluster for this node, which is impossible");
-                let node_name: String = network
-                    .node_name(node_index)
-                    .expect("Couldn't find the node name for this node");
-                write!(output_file, "{},{}\n", node_name, cluster)
-                    .expect("Could not entry to file");
+            for item in &clustering {
+                write!(output_file, "{},{}\n", labeled_network.label_for(item.node_id), item.cluster)
+                    .expect("Could not write entry to file");
             }
         }
         Err(err) => {
@@ -93,20 +85,12 @@ pub fn leiden(
 
     let file_writer_instant: Instant = Instant::now();
     println!(
-        "Time to initial load file: {:?}",
+        "Time to load file: {:?}",
         loaded_file_instant.duration_since(start_instant)
     );
     println!(
-        "Time to convert file: {:?}",
-        converted_network_instant.duration_since(loaded_file_instant)
-    );
-    println!(
-        "Time to load file: {:?}",
-        converted_network_instant.duration_since(start_instant)
-    );
-    println!(
         "Time to run leiden: {:?}",
-        leiden_completion_instant.duration_since(converted_network_instant)
+        leiden_completion_instant.duration_since(loaded_file_instant)
     );
     println!(
         "Time to output: {:?}",

@@ -24,7 +24,7 @@ pub fn quality(
         for neighbor in node.neighbors() {
             let neighbor_cluster: usize = clustering.cluster_at(neighbor.id)?;
             if neighbor_cluster == node_cluster {
-                quality += neighbor.node_weight;
+                quality += neighbor.edge_weight;
             }
         }
     }
@@ -33,8 +33,7 @@ pub fn quality(
         quality -= cluster_weight.powi(2) * adjusted_resolution;
     }
 
-    quality =
-        quality / (2_f64 * network.total_edge_weight() + network.total_self_links_edge_weight());
+    quality /= 2_f64 * network.total_edge_weight() + network.total_self_links_edge_weight();
 
     return Ok(quality);
 }

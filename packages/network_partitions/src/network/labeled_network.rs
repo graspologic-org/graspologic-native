@@ -92,6 +92,13 @@ impl LabeledNetwork {
         return self.labels_to_id.get(id).cloned();
     }
 
+    pub fn label_for(
+        &self,
+        compact_id: usize,
+    ) -> &str {
+        return self.id_to_labels[compact_id].as_str();
+    }
+
     pub fn load_from(
         path: &str,
         separator: &str,

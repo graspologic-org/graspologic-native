@@ -94,6 +94,8 @@ impl Clustering {
     /// Generates a vector of nodes for each cluster with the index referencing the cluster and the
     /// value being a count from 0 upward.
     pub fn num_nodes_per_cluster(&self) -> Vec<usize> {
+        println!("Next cluster id: {}", self.next_cluster_id);
+        println!("Number of nodes: {}", self.num_nodes());
         let mut nodes_per_cluster: Vec<usize> = vec![0 as usize; self.next_cluster_id];
         for i in 0..self.node_to_cluster_mapping.len() {
             nodes_per_cluster[self.node_to_cluster_mapping[i]] += 1;

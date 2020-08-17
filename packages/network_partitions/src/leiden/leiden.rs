@@ -137,10 +137,10 @@ where
         // nodes in that cluster, then fast, low-fidelity cluster the subnetworks, merging the results
         // back into the primary clustering before returning
         let subnetworks_iterator = network.subnetworks_iter(clustering.clone(), None);
+        let num_nodes_per_cluster: Vec<usize> = clustering.num_nodes_per_cluster();
         let num_subnetworks: usize = clustering.next_cluster_id();
 
         clustering.reset_next_cluster_id();
-        let num_nodes_per_cluster: Vec<usize> = clustering.num_nodes_per_cluster();
 
         let mut num_nodes_per_cluster_induced_network: Vec<usize> =
             Vec::with_capacity(num_subnetworks);
@@ -149,7 +149,7 @@ where
             SubnetworkClusteringGenerator::with_capacity(max_subnetwork_size);
 
         for item in subnetworks_iterator {
-            progress_meter!("{}% complete", item.cluster_id, num_subnetworks);
+            progress_meter!("{}% complete", item.id, num_subnetworks);
             let subnetwork_clustering: Clustering = subnetwork_clusterer.subnetwork_clustering(
                 &item.subnetwork.compact_network,
                 use_modularity,
