@@ -248,25 +248,21 @@ impl CompactNetwork {
         let mut cluster_weights: Vec<f64> = vec![0_f64; clustering.next_cluster_id()];
         let mut cluster_total_self_links_edge_weight = self.total_self_links_edge_weight();
 
-        let mut cluster_node_to_cluster_neighbors: HashMap<usize, HashMap<usize, f64>> =
-            HashMap::new();
+        let mut cluster_to_cluster_edges: HashMap<CompactNodeId, HashMap<CompactNodeId, f64>> = HashMap::new();
 
         for (node_id, (node_weight, _)) in self.nodes.iter().enumerate() {
-            let node_cluster: usize = clustering.cluster_at(node_id)?;
+            let node_cluster: CompactNodeId = clustering.cluster_at(node_id)?;
             cluster_weights[node_cluster] += node_weight;
-
             for neighbor in self.neighbors_for(node_id) {
-                let neighbor_cluster: usize = clustering.cluster_at(neighbor.id)?;
+                let neighbor_cluster: CompactNodeId = clustering.cluster_at(neighbor.id)?;
                 if node_cluster == neighbor_cluster {
                     cluster_total_self_links_edge_weight += neighbor.edge_weight;
                 } else {
-                    // we only do single direction this time because we know we've repeated both directions in CompactNetwork on creation
-                    let cluster_to_cluster_edge_weight = cluster_node_to_cluster_neighbors
+                    *cluster_to_cluster_edges
                         .entry(node_cluster)
                         .or_insert(HashMap::new())
                         .entry(neighbor_cluster)
-                        .or_insert(0_f64);
-                    *cluster_to_cluster_edge_weight += neighbor.edge_weight;
+                        .or_insert(0_f64) += neighbor.edge_weight;
                 }
             }
         }
@@ -276,10 +272,10 @@ impl CompactNetwork {
 
         for cluster in 0..clustering.next_cluster_id() {
             cluster_nodes.push((cluster_weights[cluster], cluster_neighbors.len()));
-            let mut neighbors: Vec<(&usize, &f64)> = cluster_node_to_cluster_neighbors
-                .get(&cluster)
-                .unwrap()
-                .into_iter()
+            let mut neighbors: Vec<(&usize, &f64)> = cluster_to_cluster_edges
+                .entry(cluster)
+                .or_insert(HashMap::new())
+                .iter()
                 .collect();
             neighbors.sort_unstable_by(|a, b| a.0.cmp(b.0));
             cluster_neighbors.reserve(neighbors.len());
@@ -288,11 +284,13 @@ impl CompactNetwork {
             }
         }
 
-        return Ok(CompactNetwork::from(
+        let induced: CompactNetwork = CompactNetwork::from(
             cluster_nodes,
             cluster_neighbors,
             cluster_total_self_links_edge_weight,
-        ));
+        );
+
+        return Ok(induced);
     }
 }
 
