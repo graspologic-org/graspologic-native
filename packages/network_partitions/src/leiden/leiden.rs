@@ -8,7 +8,7 @@ use rand::Rng;
 use crate::clustering::Clustering;
 use crate::errors::CoreError;
 use crate::log;
-use crate::network::Network;
+use crate::network::prelude::*;
 use crate::progress_meter;
 use crate::resolution::adjust_resolution;
 
@@ -57,7 +57,7 @@ const DEFAULT_ITERATIONS: usize = 1;
 ///   InternalNetwork::for_cpm_maximization and ensure you use the function that builds the corresponding
 ///   InternalNetwork for this setting.
 pub fn leiden<T>(
-    network: &Network,
+    network: &CompactNetwork,
     clustering: Option<Clustering>,
     iterations: Option<usize>,
     resolution: Option<f64>,
@@ -96,6 +96,7 @@ where
         improved |= improve_clustering(
             network,
             &mut clustering,
+            use_modularity,
             adjusted_resolution,
             randomness,
             rng,
@@ -107,8 +108,9 @@ where
 
 /// This function will be executed repeatedly as per number_iterations
 fn improve_clustering<T>(
-    network: &Network,
+    network: &CompactNetwork,
     clustering: &mut Clustering,
+    use_modularity: bool,
     adjusted_resolution: f64,
     randomness: f64,
     rng: &mut T,
@@ -134,21 +136,33 @@ where
         // given the updated clustering, generate subnetworks for each cluster comprised solely of the
         // nodes in that cluster, then fast, low-fidelity cluster the subnetworks, merging the results
         // back into the primary clustering before returning
-        let subnetworks: Vec<Network> = network.subnetworks_for_clustering(clustering)?;
-        let nodes_per_cluster: Vec<Vec<usize>> = clustering.nodes_per_cluster();
+        let subnetworks_iterator = network.subnetworks_iter(clustering.clone(), None);
+        let num_nodes_per_cluster: Vec<usize> = clustering.num_nodes_per_cluster();
+        let num_subnetworks: usize = clustering.next_cluster_id();
+
         clustering.reset_next_cluster_id();
 
-        let num_nodes_per_cluster_induced_network: Vec<usize> =
-            enrich_clustering_with_subnetwork_clusterings_serial(
-                subnetworks,
-                clustering,
-                &nodes_per_cluster,
+        let mut num_nodes_per_cluster_induced_network: Vec<usize> =
+            Vec::with_capacity(num_subnetworks);
+        let max_subnetwork_size: usize = num_nodes_per_cluster.into_iter().max().unwrap();
+        let mut subnetwork_clusterer =
+            SubnetworkClusteringGenerator::with_capacity(max_subnetwork_size);
+
+        for item in subnetworks_iterator {
+            progress_meter!("{}% complete", item.id, num_subnetworks);
+            let subnetwork_clustering: Clustering = subnetwork_clusterer.subnetwork_clustering(
+                &item.subnetwork.compact_network,
+                use_modularity,
                 adjusted_resolution,
                 randomness,
                 rng,
             )?;
+            num_nodes_per_cluster_induced_network.push(subnetwork_clustering.next_cluster_id());
+            clustering.merge_subnetwork_clustering(&item.subnetwork, &subnetwork_clustering);
+        }
 
-        let induced_clustering_network: Network = network.induce_clustering_network(clustering)?;
+        let induced_clustering_network: CompactNetwork =
+            network.induce_clustering_network(clustering)?;
 
         let mut induced_network_clustering = initial_clustering_for_induced(
             num_nodes_per_cluster_induced_network,
@@ -166,6 +180,7 @@ where
         improved |= improve_clustering(
             &induced_clustering_network,
             &mut induced_network_clustering,
+            use_modularity,
             adjusted_resolution,
             randomness,
             rng,
@@ -174,98 +189,6 @@ where
     }
     return Ok(improved);
 }
-
-fn enrich_clustering_with_subnetwork_clusterings_serial<T>(
-    subnetworks: Vec<Network>,
-    clustering: &mut Clustering,
-    nodes_per_cluster: &Vec<Vec<usize>>,
-    adjusted_resolution: f64,
-    randomness: f64,
-    rng: &mut T,
-) -> Result<Vec<usize>, CoreError>
-where
-    T: Rng,
-{
-    let mut num_nodes_per_cluster_induced_network: Vec<usize> =
-        Vec::with_capacity(subnetworks.len());
-    let max_subnetwork_size: usize = subnetworks
-        .iter()
-        .map(|subnetwork| subnetwork.num_nodes())
-        .max()
-        .unwrap();
-
-    let mut subnetwork_clusterer: SubnetworkClusteringGenerator =
-        SubnetworkClusteringGenerator::with_capacity(max_subnetwork_size);
-    log!(
-        "Generating clustering for {} subnetworks",
-        subnetworks.len()
-    );
-    for (i, subnetwork) in subnetworks.iter().enumerate() {
-        progress_meter!("{}% complete", i, subnetworks.len());
-        let subnetwork_clustering: Clustering = subnetwork_clusterer.subnetwork_clustering(
-            subnetwork,
-            adjusted_resolution,
-            randomness,
-            rng,
-        )?;
-        num_nodes_per_cluster_induced_network.push(subnetwork_clustering.next_cluster_id());
-        clustering.merge_subnetwork_clustering(&nodes_per_cluster[i], &subnetwork_clustering);
-    }
-    std::thread::spawn(move || drop(subnetworks));
-    return Ok(num_nodes_per_cluster_induced_network);
-}
-
-// fn update_clustering_by_subnetwork_multi_threaded<T>(
-//     subnetworks: Vec<Network>,
-//     clustering: &mut Clustering,
-//     nodes_per_cluster: &Vec<Vec<usize>>,
-//     adjusted_resolution: f64,
-//     randomness: f64,
-//     rng: &mut T,
-// ) -> Result<Vec<usize>, CoreError>
-// where
-//     T: Rng + Clone + Send,
-// {
-//     let mut subnetworks_and_rng: Vec<(Network, T)> = subnetworks
-//         .into_iter()
-//         .map(|subnetwork| (subnetwork, rng.clone()))
-//         .collect();
-//     let mut num_nodes_per_cluster_induced_network: Vec<usize> = vec![0; subnetworks_and_rng.len()];
-//
-//     let subnetwork_clusterings: Vec<Result<Clustering, CoreError>> = subnetworks_and_rng
-//         .par_iter_mut()
-//         .map(|package| {
-//             let subnetwork: &Network = &package.0;
-//             let rng: &mut T = &mut package.1;
-//             subnetwork_clustering::old_subnetwork_clustering(
-//                 subnetwork,
-//                 adjusted_resolution,
-//                 randomness,
-//                 rng,
-//             )
-//         })
-//         .collect();
-//
-//     let failure: Option<&Result<Clustering, CoreError>> = subnetwork_clusterings
-//         .par_iter()
-//         .find_any(|result: &&Result<Clustering, CoreError>| result.is_err());
-//
-//     if failure.is_some() {
-//         let err: CoreError = failure.unwrap().as_ref().unwrap_err().clone();
-//         return Err(err);
-//     }
-//
-//     subnetwork_clusterings
-//         .iter()
-//         .map(|result| result.as_ref().unwrap())
-//         .enumerate()
-//         .for_each(|(i, clustering_subnetwork)| {
-//             num_nodes_per_cluster_induced_network[i] = clustering_subnetwork.next_cluster_id();
-//             clustering.merge_subnetwork_clustering(&nodes_per_cluster[i], clustering_subnetwork);
-//         });
-//
-//     return Ok(num_nodes_per_cluster_induced_network);
-// }
 
 fn initial_clustering_for_induced(
     num_nodes_per_cluster_induced_network: Vec<usize>,

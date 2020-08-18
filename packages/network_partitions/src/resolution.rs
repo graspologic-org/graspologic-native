@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-use crate::network::Network;
+use crate::network::prelude::*;
 
 pub const DEFAULT_RESOLUTION: f64 = 1_f64;
 
@@ -16,7 +16,7 @@ pub const DEFAULT_RESOLUTION: f64 = 1_f64;
 /// In either case, if the user doesn't specify a resolution, we use a default of 1.0 (though it may be scaled for modularity)
 pub fn adjust_resolution(
     resolution: Option<f64>,
-    network: &Network,
+    network: &CompactNetwork,
     use_modularity: bool,
 ) -> f64 {
     let resolution: f64 = resolution.unwrap_or(DEFAULT_RESOLUTION);
@@ -26,7 +26,7 @@ pub fn adjust_resolution(
         // which seems to be a bug since this resolution factor when used for modularity is
         // `resolution / 2m`, where m is the total edge weights of the graph.
         resolution
-            / (2_f64 * (network.total_edge_weight() + network.total_edge_weight_self_links()))
+            / (2_f64 * (network.total_edge_weight() + network.total_self_links_edge_weight()))
     } else {
         resolution
     };

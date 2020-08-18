@@ -7,12 +7,12 @@ use crate::clustering::Clustering;
 use crate::errors::CoreError;
 use crate::leiden::neighboring_clusters::NeighboringClusters;
 use crate::log;
-use crate::network::Network;
+use crate::network::prelude::*;
 use crate::progress_meter;
 use rand::Rng;
 
 pub fn full_network_clustering<T>(
-    network: &Network,
+    network: &CompactNetwork,
     clustering: &mut Clustering,
     adjusted_resolution: f64,
     rng: &mut T,
@@ -54,7 +54,7 @@ where
 
         let current_node: usize = work_queue.pop_front()?;
         let current_cluster: usize = clustering.cluster_at(current_node)?;
-        let current_node_weight: f64 = network.node_weight_at(current_node)?;
+        let current_node_weight: f64 = network.node_weight(current_node);
 
         // temporarily presume we're not in any cluster (we'll add this back later after we've
         // decided on the appropriate cluster to belong to)
@@ -134,22 +134,22 @@ where
 }
 
 fn weights_and_counts_per_cluster(
-    network: &Network,
+    network: &CompactNetwork,
     clustering: &Clustering,
 ) -> Result<(Vec<f64>, Vec<usize>), CoreError> {
     let mut cluster_weights: Vec<f64> = vec![0_f64; network.num_nodes()];
     let mut num_nodes_per_cluster: Vec<usize> = vec![0; network.num_nodes()];
 
-    for node in 0..network.num_nodes() {
-        let cluster_id: usize = clustering.cluster_at(node)?;
-        cluster_weights[cluster_id] += network.node_weight_at(node)?;
+    for compact_node in network {
+        let cluster_id: usize = clustering.cluster_at(compact_node.id)?;
+        cluster_weights[cluster_id] += compact_node.weight;
         num_nodes_per_cluster[cluster_id] += 1;
     }
     return Ok((cluster_weights, num_nodes_per_cluster));
 }
 
 fn unused_clusters(
-    network: &Network,
+    network: &CompactNetwork,
     num_nodes_per_cluster: &Vec<usize>,
 ) -> (Vec<usize>, usize) {
     let size: usize = network.num_nodes() - 1;
@@ -184,7 +184,7 @@ fn leave_current_cluster(
 }
 
 fn identify_neighboring_clusters(
-    network: &Network,
+    network: &CompactNetwork,
     clustering: &Clustering,
     current_node: usize,
     current_cluster: usize,
@@ -196,12 +196,9 @@ fn identify_neighboring_clusters(
     let next_unused_cluster: usize = unused_clusters[num_unused_clusters - 1];
     neighboring_clusters.increase_cluster_weight(next_unused_cluster, 0_f64);
 
-    let (start_neighbor_index, end_neighbor_index) = network.neighbor_range(current_node)?;
-
-    for neighbor_index in start_neighbor_index..end_neighbor_index {
-        let (neighbor_node, weight) = network.edge_at(neighbor_index)?;
-        let neighbor_cluster: usize = clustering.cluster_at(neighbor_node)?;
-        neighboring_clusters.increase_cluster_weight(neighbor_cluster, weight);
+    for neighbor in network.neighbors_for(current_node) {
+        let neighbor_cluster: usize = clustering.cluster_at(neighbor.id)?;
+        neighboring_clusters.increase_cluster_weight(neighbor_cluster, neighbor.edge_weight);
     }
     neighboring_clusters.freeze();
     return Ok(());
@@ -255,17 +252,15 @@ fn join_cluster(
 }
 
 fn trigger_cluster_change(
-    network: &Network,
+    network: &CompactNetwork,
     clustering: &Clustering,
     work_queue: &mut FullNetworkWorkQueue,
     node: usize,
     best_cluster: usize,
 ) -> Result<(), CoreError> {
-    let (start_neighbor_index, end_neighbor_index) = network.neighbor_range(node)?;
-    for neighbor_index in start_neighbor_index..end_neighbor_index {
-        let neighbor: usize = network.neighbor_at(neighbor_index)?;
-        if clustering.cluster_at(neighbor)? != best_cluster {
-            work_queue.push_back(neighbor);
+    for neighbor in network.neighbors_for(node) {
+        if clustering.cluster_at(neighbor.id)? != best_cluster {
+            work_queue.push_back(neighbor.id);
         }
     }
     return Ok(());
@@ -274,7 +269,7 @@ fn trigger_cluster_change(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::network::NetworkBuilder;
+    use crate::network::{Edge, LabeledNetwork};
     use crate::resolution;
     use rand::SeedableRng;
     use rand_xorshift::XorShiftRng;
@@ -286,70 +281,78 @@ mod tests {
         // generate same graph as in java, done via Network object not InternalNetwork, then
         // generate a InternalNetwork from it
         // we should expect 3 clusters, 2 with a light connection and 1 with no connection
-        let network: Network = NetworkBuilder::for_modularity()
-            .add_edge_into("dwayne", "nick", 15.0)
-            .add_edge_into("nick", "jon", 12.0)
-            .add_edge_into("jon", "carolyn", 14.0)
-            .add_edge_into("nick", "carolyn", 10.0)
-            .add_edge_into("dwayne", "jon", 12.0)
-            .add_edge_into("carolyn", "amber", 1.0)
-            .add_edge_into("amber", "chris", 12.0)
-            .add_edge_into("amber", "nathan", 15.0)
-            .add_edge_into("nathan", "chris", 5.0)
-            .add_edge_into("jarkko", "thirteen", 15.0)
-            .build();
 
-        let mut clustering: Clustering = Clustering::as_self_clusters(network.num_nodes());
+        let edges: Vec<Edge> = vec![
+            ("dwayne".into(), "nick".into(), 15.0),
+            ("nick".into(), "jon".into(), 15.0),
+            ("jon".into(), "carolyn".into(), 15.0),
+            ("nick".into(), "carolyn".into(), 15.0),
+            ("dwayne".into(), "jon".into(), 15.0),
+            ("carolyn".into(), "amber".into(), 15.0),
+            ("amber".into(), "chris".into(), 15.0),
+            ("amber".into(), "nathan".into(), 15.0),
+            ("nathan".into(), "chris".into(), 15.0),
+            ("jarkko".into(), "thirteen".into(), 15.0),
+        ];
 
-        let adjusted_resolution: f64 = resolution::adjust_resolution(Option::None, &network, true);
+        let labeled_network: LabeledNetwork = LabeledNetwork::from(edges, true);
 
-        let improved =
-            full_network_clustering(&network, &mut clustering, adjusted_resolution, &mut rng)
-                .unwrap();
+        let mut clustering: Clustering = Clustering::as_self_clusters(labeled_network.num_nodes());
+
+        let adjusted_resolution: f64 =
+            resolution::adjust_resolution(Option::None, labeled_network.compact(), true);
+
+        let improved = full_network_clustering(
+            labeled_network.compact(),
+            &mut clustering,
+            adjusted_resolution,
+            &mut rng,
+        )
+        .unwrap();
 
         assert!(improved);
         let nathan_cluster: usize = clustering
-            .cluster_at(network.index_for_name("nathan").unwrap().clone())
+            .cluster_at(labeled_network.compact_id_for("nathan").unwrap())
             .unwrap();
         let dwayne_cluster: usize = clustering
-            .cluster_at(network.index_for_name("dwayne").unwrap().clone())
+            .cluster_at(labeled_network.compact_id_for("dwayne").unwrap())
             .unwrap();
         let jarkko_cluster: usize = clustering
-            .cluster_at(network.index_for_name("jarkko").unwrap().clone())
+            .cluster_at(labeled_network.compact_id_for("jarkko").unwrap())
             .unwrap();
 
         assert_eq!(
             nathan_cluster,
             clustering
-                .cluster_at(network.index_for_name("chris").unwrap().clone())
+                .cluster_at(labeled_network.compact_id_for("chris").unwrap())
                 .unwrap(),
             "Expected chris in nathan cluster"
         );
         assert_eq!(
             nathan_cluster,
             clustering
-                .cluster_at(network.index_for_name("amber").unwrap().clone())
+                .cluster_at(labeled_network.compact_id_for("amber").unwrap())
                 .unwrap(),
             "Expected amber in nathan cluster"
         );
         assert_eq!(
             dwayne_cluster,
             clustering
-                .cluster_at(network.index_for_name("jon").unwrap().clone())
+                .cluster_at(labeled_network.compact_id_for("jon").unwrap())
                 .unwrap(),
             "Expected jon in dwayne cluster"
         );
         assert_eq!(
             dwayne_cluster,
             clustering
-                .cluster_at(network.index_for_name("nick").unwrap().clone())
+                .cluster_at(labeled_network.compact_id_for("nick").unwrap())
                 .unwrap(),
             "Expected nick in dwayne cluster"
         );
         assert_eq!(
             dwayne_cluster,
             clustering
-                .cluster_at(network.index_for_name("carolyn").unwrap().clone())
+                .cluster_at(labeled_network.compact_id_for("carolyn").unwrap())
                 .unwrap(),
             "Expected carolyn in dwayne cluster"
         );

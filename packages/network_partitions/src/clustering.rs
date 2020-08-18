@@ -3,7 +3,14 @@
 
 use super::errors::CoreError;
 use super::safe_vectors::SafeVectors;
+use crate::network::CompactSubnetwork;
 use std::collections::HashMap;
+use std::ops::Index;
+
+pub struct ClusterItem {
+    pub node_id: usize,
+    pub cluster: usize,
+}
 
 /// Clustering is not a great abstraction; the details of it are purposefully spilled to the
 /// clustering algorithm for optimal computational runtime, but it's important to note that the
@@ -141,49 +148,18 @@ impl Clustering {
         }
     }
 
-    /// Orders the clusters in our Clustering by ensuring the clusters with the largest population
-    /// (e.g. the most nodes) are at the front of the node_to_cluster_mapping array.
-    /// Note that this function also drops empty clusters.
-    pub fn order_clusters_by_population(&mut self) {
-        let mut cluster_weights: Vec<u32> = vec![0u32; self.next_cluster_id];
-        for i in 0..self.node_to_cluster_mapping.len() {
-            cluster_weights[self.node_to_cluster_mapping[i]] += 1u32;
-        }
-        let mut weighted_clusters: Vec<(usize, &u32)> =
-            cluster_weights.iter().enumerate().collect();
-        weighted_clusters.sort_by(|a, b| a.1.cmp(b.1).reverse());
-        let mut new_cluster_index: usize = 0;
-        let mut old_cluster_to_new_cluster_map: Vec<usize> = vec![0; self.next_cluster_id];
-        loop {
-            old_cluster_to_new_cluster_map[weighted_clusters[new_cluster_index].0] =
-                new_cluster_index;
-            new_cluster_index += 1;
-            if new_cluster_index >= self.next_cluster_id
-                || *weighted_clusters[new_cluster_index].1 == 0
-            {
-                break;
-            }
-        }
-        self.next_cluster_id = new_cluster_index;
-        for i in 0..self.node_to_cluster_mapping.len() {
-            self.node_to_cluster_mapping[i] =
-                old_cluster_to_new_cluster_map[self.node_to_cluster_mapping[i]];
-        }
-    }
-
     pub fn reset_next_cluster_id(&mut self) {
         self.next_cluster_id = 0;
     }
 
     pub fn merge_subnetwork_clustering(
         &mut self,
-        subnetwork_nodes: &Vec<usize>,
+        subnetwork: &CompactSubnetwork,
         subnetwork_clustering: &Clustering,
     ) {
-        for subnetwork_node_index in 0..subnetwork_nodes.len() {
-            let network_node_index: usize = subnetwork_nodes[subnetwork_node_index];
-            self.node_to_cluster_mapping[network_node_index] = self.next_cluster_id
-                + subnetwork_clustering.node_to_cluster_mapping[subnetwork_node_index];
+        for (new_id, old_id) in subnetwork.node_id_map.iter().enumerate() {
+            self.node_to_cluster_mapping[*old_id] =
+                self.next_cluster_id + subnetwork_clustering.node_to_cluster_mapping[new_id];
         }
         self.next_cluster_id += subnetwork_clustering.next_cluster_id;
     }
@@ -214,6 +190,51 @@ impl From<Clustering> for HashMap<usize, usize> {
     }
 }
 
+pub struct ClusterIterator<'a> {
+    cluster_ref: &'a Clustering,
+    next_cluster_id: usize,
+}
+
+impl<'a> Iterator for ClusterIterator<'a> {
+    type Item = ClusterItem;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        return if self.next_cluster_id == self.cluster_ref.node_to_cluster_mapping.len() {
+            None
+        } else {
+            let item = ClusterItem {
+                node_id: self.next_cluster_id,
+                cluster: self.cluster_ref[self.next_cluster_id],
+            };
+            self.next_cluster_id += 1;
+            Some(item)
+        };
+    }
+}
+
+impl<'a> IntoIterator for &'a Clustering {
+    type Item = ClusterItem;
+    type IntoIter = ClusterIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        return ClusterIterator {
+            cluster_ref: &self,
+            next_cluster_id: 0,
+        };
+    }
+}
+
+impl Index<usize> for Clustering {
+    type Output = usize;
+
+    fn index(
+        &self,
+        index: usize,
+    ) -> &Self::Output {
+        &self.node_to_cluster_mapping[index]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Clustering;
@@ -240,20 +261,6 @@ mod tests {
             next_cluster_id: 0,
         };
         clustering.remove_empty_clusters();
-        assert_eq!(clustering, expected);
-    }
-
-    #[test]
-    pub fn test_order_clusters_by_population() {
-        let mut clustering: Clustering = Clustering {
-            node_to_cluster_mapping: vec![3, 3, 4, 1, 2, 2, 5, 0],
-            next_cluster_id: 6,
-        };
-        let expected: Clustering = Clustering {
-            node_to_cluster_mapping: vec![1, 1, 4, 3, 0, 0, 5, 2],
-            next_cluster_id: 6,
-        };
-        clustering.order_clusters_by_population();
         assert_eq!(clustering, expected);
     }
 
