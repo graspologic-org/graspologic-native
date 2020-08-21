@@ -136,7 +136,7 @@ where
         // given the updated clustering, generate subnetworks for each cluster comprised solely of the
         // nodes in that cluster, then fast, low-fidelity cluster the subnetworks, merging the results
         // back into the primary clustering before returning
-        let subnetworks_iterator = network.subnetworks_iter(clustering.clone(), None);
+        let subnetworks_iterator = network.subnetworks_iter(clustering, None);
         let num_nodes_per_cluster: Vec<usize> = clustering.num_nodes_per_cluster();
         let num_subnetworks: usize = clustering.next_cluster_id();
 

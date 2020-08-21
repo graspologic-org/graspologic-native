@@ -207,9 +207,10 @@ impl CompactNetwork {
 
     pub fn subnetworks_iter(
         &self,
-        clustering: Clustering,
+        clustering: &Clustering,
         subnetwork_minimum_size: Option<u32>,
     ) -> SubnetworkIterator {
+        let clustering: Clustering = clustering.clone();
         let working_map: HashMap<CompactNodeId, CompactNodeId> =
             HashMap::with_capacity(clustering.next_cluster_id());
 
