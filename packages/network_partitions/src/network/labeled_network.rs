@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-use std::io::{BufReader, Read};
-use std::fs::File;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::{BufReader, Read};
 
 use crate::errors::NetworkError;
 
@@ -106,7 +106,7 @@ impl LabeledNetwork {
         target_index: usize,
         weight_index: Option<usize>,
         skip_first_line: bool,
-        use_modularity: bool
+        use_modularity: bool,
     ) -> Result<LabeledNetwork, NetworkError> {
         let minimum_required_length: usize = source_index
             .max(target_index)

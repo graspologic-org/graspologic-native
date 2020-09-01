@@ -249,7 +249,8 @@ impl CompactNetwork {
         let mut cluster_weights: Vec<f64> = vec![0_f64; clustering.next_cluster_id()];
         let mut cluster_total_self_links_edge_weight = self.total_self_links_edge_weight();
 
-        let mut cluster_to_cluster_edges: HashMap<CompactNodeId, HashMap<CompactNodeId, f64>> = HashMap::new();
+        let mut cluster_to_cluster_edges: HashMap<CompactNodeId, HashMap<CompactNodeId, f64>> =
+            HashMap::new();
 
         for (node_id, (node_weight, _)) in self.nodes.iter().enumerate() {
             let node_cluster: CompactNodeId = clustering.cluster_at(node_id)?;
