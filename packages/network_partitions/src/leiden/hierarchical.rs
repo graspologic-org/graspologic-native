@@ -3,13 +3,12 @@ use rand::Rng;
 use super::leiden::leiden;
 use crate::clustering::{ClusterItem, Clustering};
 use crate::errors::CoreError;
+use crate::log;
 use crate::network::prelude::*;
 use std::collections::VecDeque;
 
-pub const MAX_CLUSTER_SIZE: u32 = 1000;
-
 struct HierarchicalWork {
-    subnetwork: CompactSubnetwork,
+    subnetwork: LabeledNetwork<CompactNodeId>,
     parent_cluster: ClusterId,
 }
 
@@ -62,7 +61,7 @@ impl HierarchicalClustering {
 
     pub fn insert_subnetwork_clustering(
         &mut self,
-        subnetwork: &CompactSubnetwork,
+        subnetwork: &LabeledNetwork<CompactNodeId>,
         subnetwork_clustering: &Clustering,
         parent_cluster: ClusterId,
         starting_cluster_id: ClusterId,
@@ -75,7 +74,7 @@ impl HierarchicalClustering {
 
         for cluster_item in ordered_cluster_items {
             let hierarchical_cluster = HierarchicalCluster {
-                node: subnetwork.node_id_map[cluster_item.node_id],
+                node: *subnetwork.label_for(cluster_item.node_id),
                 cluster: cluster_item.cluster + starting_cluster_id,
                 level,
                 parent_cluster: Some(parent_cluster),
@@ -98,6 +97,7 @@ impl HierarchicalClustering {
             self.hierarchical_clusterings[old_hierarchical_cluster_entry].is_final_cluster = false;
         }
     }
+
 }
 
 trait OrderedClustering {
@@ -136,21 +136,39 @@ where
         use_modularity,
     )?;
 
+    log!("First clustering completed.");
+
     let mut hierarchical_clustering: HierarchicalClustering =
         HierarchicalClustering::new(&updated_clustering);
     let mut work_queue: VecDeque<HierarchicalWork> = VecDeque::new();
     let mut level: u32 = 1;
 
-    for subnetwork in network.subnetworks_iter(&updated_clustering, Some(max_cluster_size)) {
+    let nodes_by_cluster: Vec<Vec<CompactNodeId>> = updated_clustering.nodes_per_cluster();
+
+    for subnetwork in network.filtered_subnetworks(
+        &updated_clustering,
+        &nodes_by_cluster,
+        max_cluster_size,
+        use_modularity,
+    ) {
+        log!(
+            "Cluster {} contains more than {} values and will be added to the work queue",
+            subnetwork.id,
+            max_cluster_size
+        );
         work_queue.push_back(HierarchicalWork {
             subnetwork: subnetwork.subnetwork,
             parent_cluster: subnetwork.id,
         });
     }
+
+    // return Ok(Vec::new());
+
     while !work_queue.is_empty() {
         let work_item: HierarchicalWork = work_queue.pop_front().unwrap();
+        let subnetwork: LabeledNetwork<CompactNodeId> = work_item.subnetwork;
         let (_, subnetwork_clustering) = leiden(
-            &work_item.subnetwork.compact_network,
+            subnetwork.compact(),
             None,
             iterations,
             resolution,
@@ -161,7 +179,7 @@ where
         let offset: usize = updated_clustering.next_cluster_id();
 
         hierarchical_clustering.insert_subnetwork_clustering(
-            &work_item.subnetwork,
+            &subnetwork,
             &subnetwork_clustering,
             work_item.parent_cluster,
             offset,
@@ -169,18 +187,24 @@ where
         );
 
         for clustering_item in &subnetwork_clustering {
+            let new_cluster_id: ClusterId = clustering_item.cluster + offset;
+            let old_node_id: CompactNodeId = *subnetwork.label_for(clustering_item.node_id);
             updated_clustering
-                .update_cluster_at(clustering_item.node_id, clustering_item.cluster + offset)?;
+                .update_cluster_at(old_node_id, new_cluster_id)?;
         }
 
         if work_queue.is_empty() {
+            log!("Level {} complete, seeking any other clusters larger than {} size for further refinement", level, max_cluster_size);
             level += 1;
-            for subnetwork in network.subnetworks_iter(&updated_clustering, Some(max_cluster_size))
+            let nodes_by_cluster: Vec<Vec<CompactNodeId>> = updated_clustering.nodes_per_cluster();
+            for subnetwork in network.subnetworks_iter(&updated_clustering, &nodes_by_cluster, Some(max_cluster_size))
             {
-                work_queue.push_back(HierarchicalWork {
-                    subnetwork: subnetwork.subnetwork,
-                    parent_cluster: subnetwork.id,
-                });
+                if nodes_by_cluster[subnetwork.id].len() > 1 {
+                    work_queue.push_back(HierarchicalWork {
+                        subnetwork: subnetwork.subnetwork,
+                        parent_cluster: subnetwork.id,
+                    });
+                }
             }
         }
     }

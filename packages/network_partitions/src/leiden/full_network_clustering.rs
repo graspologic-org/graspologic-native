@@ -295,7 +295,8 @@ mod tests {
             ("jarkko".into(), "thirteen".into(), 15.0),
         ];
 
-        let labeled_network: LabeledNetwork = LabeledNetwork::from(edges, true);
+        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
 
         let mut clustering: Clustering = Clustering::as_self_clusters(labeled_network.num_nodes());
 
@@ -312,47 +313,47 @@ mod tests {
 
         assert!(improved);
         let nathan_cluster: usize = clustering
-            .cluster_at(labeled_network.compact_id_for("nathan").unwrap())
+            .cluster_at(labeled_network.compact_id_for("nathan".into()).unwrap())
             .unwrap();
         let dwayne_cluster: usize = clustering
-            .cluster_at(labeled_network.compact_id_for("dwayne").unwrap())
+            .cluster_at(labeled_network.compact_id_for("dwayne".into()).unwrap())
             .unwrap();
         let jarkko_cluster: usize = clustering
-            .cluster_at(labeled_network.compact_id_for("jarkko").unwrap())
+            .cluster_at(labeled_network.compact_id_for("jarkko".into()).unwrap())
             .unwrap();
 
         assert_eq!(
             nathan_cluster,
             clustering
-                .cluster_at(labeled_network.compact_id_for("chris").unwrap())
+                .cluster_at(labeled_network.compact_id_for("chris".into()).unwrap())
                 .unwrap(),
             "Expected chris in nathan cluster"
         );
         assert_eq!(
             nathan_cluster,
             clustering
-                .cluster_at(labeled_network.compact_id_for("amber").unwrap())
+                .cluster_at(labeled_network.compact_id_for("amber".into()).unwrap())
                 .unwrap(),
             "Expected amber in nathan cluster"
         );
         assert_eq!(
             dwayne_cluster,
             clustering
-                .cluster_at(labeled_network.compact_id_for("jon").unwrap())
+                .cluster_at(labeled_network.compact_id_for("jon".into()).unwrap())
                 .unwrap(),
             "Expected jon in dwayne cluster"
         );
         assert_eq!(
             dwayne_cluster,
             clustering
-                .cluster_at(labeled_network.compact_id_for("nick").unwrap())
+                .cluster_at(labeled_network.compact_id_for("nick".into()).unwrap())
                 .unwrap(),
             "Expected nick in dwayne cluster"
         );
         assert_eq!(
             dwayne_cluster,
             clustering
-                .cluster_at(labeled_network.compact_id_for("carolyn").unwrap())
+                .cluster_at(labeled_network.compact_id_for("carolyn".into()).unwrap())
                 .unwrap(),
             "Expected carolyn in dwayne cluster"
         );

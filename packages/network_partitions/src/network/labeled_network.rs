@@ -9,35 +9,81 @@ use crate::errors::NetworkError;
 
 use super::compact_network::{CompactNeighbor, CompactNetwork, CompactNode, CompactNodeId};
 use super::networks::NetworkDetails;
-use super::{identifier, Edge};
+use super::{Edge, Identifier};
 
-pub struct LabeledNetwork {
+use std::hash::Hash;
+
+#[derive(Debug)]
+pub struct LabeledNetwork<T> {
     network_structure: CompactNetwork,
-    labels_to_id: HashMap<String, usize>,
-    id_to_labels: Vec<String>,
+    labels_to_id: HashMap<T, CompactNodeId>,
+    id_to_labels: Vec<T>,
 }
 
-impl LabeledNetwork {
-    /// Superficially this seems like an easy task. Get the edges, add them. But we don't *know*
-    /// that the edges provided are already in sorted source order (e.g. all edges from A to <N>
-    /// all appear sequentially in the list.
-    /// So we must collect and guarantee that behavior with this function.
-    pub fn from(
-        edges: Vec<Edge>,
-        use_modularity: bool,
-    ) -> Self {
-        let mut labels_to_id: HashMap<String, CompactNodeId> = HashMap::new();
-        let mut id_to_labels: Vec<String> = Vec::new();
+impl<T> NetworkDetails for LabeledNetwork<T> {
+    fn num_nodes(&self) -> usize {
+        return self.network_structure.num_nodes();
+    }
+
+    fn num_edges(&self) -> usize {
+        return self.network_structure.num_edges();
+    }
+
+    fn total_node_weight(&self) -> f64 {
+        return self.network_structure.total_node_weight();
+    }
+
+    fn total_edge_weight(&self) -> f64 {
+        return self.network_structure.total_edge_weight();
+    }
+
+    fn total_self_links_edge_weight(&self) -> f64 {
+        return self.network_structure.total_self_links_edge_weight();
+    }
+}
+
+pub struct LabeledNetworkBuilder<T> {
+    node_to_neighbors: HashMap<CompactNodeId, HashMap<CompactNodeId, f64>>,
+    identifier: Identifier<T>,
+}
+
+impl <T> LabeledNetworkBuilder<T> where T: Clone + Eq + Hash + PartialEq + std::cmp::PartialEq  {
+    pub fn new() -> Self {
+        let builder: LabeledNetworkBuilder<T> = LabeledNetworkBuilder {
+            node_to_neighbors: HashMap::new(),
+            identifier: Identifier::new()
+        };
+        return builder;
+    }
+
+    pub fn with_capacity(size: usize) -> Self {
+        let builder: LabeledNetworkBuilder<T> = LabeledNetworkBuilder {
+            node_to_neighbors: HashMap::with_capacity(size),
+            identifier: Identifier::new()
+        };
+        return builder;
+    }
+
+    pub fn build<I>(
+        &mut self,
+        edges_iter: I,
+        use_modularity: bool
+    ) -> LabeledNetwork<T> where I: Iterator<Item=(T, T, f64)>{
+        // set up our working area first
+        self.node_to_neighbors.clear();
+        self.identifier.clear();
+
+        let node_to_neighbors: &mut HashMap<CompactNodeId, HashMap<CompactNodeId, f64>> = &mut self.node_to_neighbors;
+
+        // set up our target vectors for the CompactNetwork
         let mut nodes: Vec<CompactNode> = Vec::new();
-        let mut neighbors: Vec<CompactNeighbor> = Vec::with_capacity(edges.len());
-        let mut node_to_neighbors: HashMap<usize, HashMap<usize, f64>> = HashMap::new();
-        for (source, target, weight) in edges {
+        let mut neighbors: Vec<CompactNeighbor> = Vec::new();
+
+        for (source, target, weight) in edges_iter {
             // as we see nodes, we're going to give them an identity, either by reusing one already
             // given or by creating a new one in the order first seen in the edge list.
-            let source_id: usize =
-                identifier::identify(&mut labels_to_id, &mut id_to_labels, source);
-            let target_id: usize =
-                identifier::identify(&mut labels_to_id, &mut id_to_labels, target);
+            let source_id: CompactNodeId = self.identifier.identify(source);
+            let target_id: CompactNodeId = self.identifier.identify(target);
             node_to_neighbors
                 .entry(source_id)
                 .or_insert(HashMap::new())
@@ -49,10 +95,13 @@ impl LabeledNetwork {
                 .entry(source_id)
                 .or_insert(weight);
         }
+
+        let (labels_to_id, id_to_labels) = self.identifier.finish();
+
         let mut total_self_links_edge_weight: f64 = 0_f64;
         for node_id in 0..id_to_labels.len() {
             let mut node_weight: f64 = 0_f64; // we are going to set the node_weight as the summation of edge weights regardless of whether we're using modularity or CPM, but if we are using CPM we won't bother to use it.
-            let mut node_neighbors: Vec<(&usize, &f64)> = node_to_neighbors
+            let mut node_neighbors: Vec<(&CompactNodeId, &f64)> = node_to_neighbors
                 .get(&node_id)
                 .unwrap()
                 .into_iter()
@@ -74,12 +123,21 @@ impl LabeledNetwork {
         let compact_network: CompactNetwork =
             CompactNetwork::from(nodes, neighbors, total_self_links_edge_weight);
 
-        return LabeledNetwork {
-            network_structure: compact_network,
+        let labeled_network: LabeledNetwork<T> = LabeledNetwork {
             labels_to_id,
             id_to_labels,
+            network_structure: compact_network,
         };
+
+        return labeled_network;
     }
+}
+
+impl<T> LabeledNetwork<T> where T: Clone + Eq + Hash + PartialEq + std::cmp::PartialEq  {
+    /// Superficially this seems like an easy task. Get the edges, add them. But we don't *know*
+    /// that the edges provided are already in sorted source order (e.g. all edges from A to <N>
+    /// all appear sequentially in the list.
+    /// So we must collect and guarantee that behavior with this function.
 
     pub fn compact(&self) -> &CompactNetwork {
         return &self.network_structure;
@@ -87,16 +145,20 @@ impl LabeledNetwork {
 
     pub fn compact_id_for(
         &self,
-        id: &str,
-    ) -> Option<usize> {
-        return self.labels_to_id.get(id).cloned();
+        id: T,
+    ) -> Option<CompactNodeId> {
+        return self.labels_to_id.get(&id).cloned();
     }
 
     pub fn label_for(
         &self,
-        compact_id: usize,
-    ) -> &str {
-        return self.id_to_labels[compact_id].as_str();
+        compact_id: CompactNodeId,
+    ) -> &T {
+        return &self.id_to_labels[compact_id];
+    }
+
+    pub fn labeled_ids(&self) -> impl Iterator<Item=(CompactNodeId, &T)> + '_ {
+        return self.id_to_labels.iter().enumerate();
     }
 
     pub fn load_from(
@@ -107,7 +169,7 @@ impl LabeledNetwork {
         weight_index: Option<usize>,
         skip_first_line: bool,
         use_modularity: bool,
-    ) -> Result<LabeledNetwork, NetworkError> {
+    ) -> Result<LabeledNetwork<String>, NetworkError> {
         let minimum_required_length: usize = source_index
             .max(target_index)
             .max(weight_index.unwrap_or(target_index))
@@ -135,29 +197,10 @@ impl LabeledNetwork {
             }
         }
 
-        return Ok(LabeledNetwork::from(edges, use_modularity));
-    }
-}
+        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
 
-impl NetworkDetails for LabeledNetwork {
-    fn num_nodes(&self) -> usize {
-        return self.network_structure.num_nodes();
-    }
-
-    fn num_edges(&self) -> usize {
-        return self.network_structure.num_edges();
-    }
-
-    fn total_node_weight(&self) -> f64 {
-        return self.network_structure.total_node_weight();
-    }
-
-    fn total_edge_weight(&self) -> f64 {
-        return self.network_structure.total_edge_weight();
-    }
-
-    fn total_self_links_edge_weight(&self) -> f64 {
-        return self.network_structure.total_self_links_edge_weight();
+        return Ok(labeled_network);
     }
 }
 
@@ -238,7 +281,8 @@ pub mod tests {
     #[test]
     fn test_from_modularity() {
         let edges = edge_list();
-        let labeled_network: LabeledNetwork = LabeledNetwork::from(edges, true);
+        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
         let (expected_label_map, expected_label_order) = expected_label_mappings();
         assert_eq!(expected_label_order, labeled_network.id_to_labels);
         assert_eq!(expected_label_map, labeled_network.labels_to_id);
@@ -272,7 +316,8 @@ pub mod tests {
     #[test]
     fn test_from_cpm() {
         let edges = edge_list();
-        let labeled_network: LabeledNetwork = LabeledNetwork::from(edges, false);
+        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
         let (expected_label_map, expected_label_order) = expected_label_mappings();
         assert_eq!(expected_label_order, labeled_network.id_to_labels);
         assert_eq!(expected_label_map, labeled_network.labels_to_id);

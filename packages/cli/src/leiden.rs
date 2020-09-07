@@ -29,7 +29,7 @@ pub fn leiden(
     skip_first_line: bool,
 ) {
     let start_instant: Instant = Instant::now();
-    let labeled_network: LabeledNetwork = LabeledNetwork::load_from(
+    let labeled_network: LabeledNetwork<String> = LabeledNetwork::<String>::load_from(
         source_edges,
         separator,
         source_index,

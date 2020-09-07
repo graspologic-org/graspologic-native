@@ -17,7 +17,6 @@ use pyo3::types::{PyDict, PyInt, PyList, PyString, PyTuple};
 
 use network_partitions::clustering::Clustering;
 use network_partitions::errors::CoreError;
-use network_partitions::leiden::leiden as leiden_internal;
 use network_partitions::log;
 use network_partitions::network::prelude::*;
 use network_partitions::quality;
@@ -37,7 +36,7 @@ pub struct HierarchicalCluster {
     #[pyo3(get)]
     parent_cluster: Option<ClusterId>,
     #[pyo3(get)]
-    is_final_cluster: bool
+    is_final_cluster: bool,
 }
 
 #[pyfunction(
@@ -119,7 +118,7 @@ fn leiden(
     randomness = "0.001",
     iterations = "1",
     use_modularity = "true",
-    max_cluster_size = "1000",
+    max_cluster_size = "1000"
 )]
 #[text_signature = "(edges, /starting_communities, resolution, randomness, iterations, use_modularity, max_cluster_size, seed)"]
 /// Leiden is a community detection algorithm based on the Louvain algorithm.
@@ -171,23 +170,22 @@ fn hierarchical_leiden(
     #[cfg(feature = "logging")]
     use std::time::Instant;
     #[cfg(feature = "logging")]
-        let now: Instant = Instant::now();
+    let now: Instant = Instant::now();
 
     log!("pyo3 converted {} edges from Python's representation to a Vec<(String, String, f64)> representation at {:?}", edges.len(), now);
 
-    let result: Result<Vec<HierarchicalCluster>, PyLeidenError> =
-        py.allow_threads(move || {
-            mediator::hierarchical_leiden(
-                edges,
-                starting_communities,
-                resolution,
-                randomness,
-                iterations,
-                use_modularity,
-                max_cluster_size,
-                seed,
-            )
-        });
+    let result: Result<Vec<HierarchicalCluster>, PyLeidenError> = py.allow_threads(move || {
+        mediator::hierarchical_leiden(
+            edges,
+            starting_communities,
+            resolution,
+            randomness,
+            iterations,
+            use_modularity,
+            max_cluster_size,
+            seed,
+        )
+    });
     return result.map_err(|err| PyErr::from(err));
 }
 

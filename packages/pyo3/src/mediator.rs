@@ -11,11 +11,11 @@ use network_partitions::network::prelude::*;
 use network_partitions::quality;
 use network_partitions::safe_vectors::SafeVectors;
 
+use super::errors::PyLeidenError;
+use super::HierarchicalCluster;
+use crate::errors::InvalidCommunityMappingError;
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
-use super::HierarchicalCluster;
-use super::errors::PyLeidenError;
-use crate::errors::InvalidCommunityMappingError;
 
 pub fn leiden(
     edges: Vec<Edge>,
@@ -32,7 +32,8 @@ pub fn leiden(
     );
     log!("Adding {} edges to network builder", edges.len());
 
-    let labeled_network: LabeledNetwork = LabeledNetwork::from(edges, use_modularity);
+    let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+    let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
 
     log!("Network built from edges");
     let clustering: Option<Clustering> = match starting_communities {
@@ -83,9 +84,10 @@ pub fn modularity(
     communities: HashMap<String, usize>,
     resolution: f64,
 ) -> Result<f64, PyLeidenError> {
-    let network: LabeledNetwork = LabeledNetwork::from(edges, true);
-    let clustering: Clustering = communities_to_clustering(&network, communities)?;
-    let quality: f64 = quality::quality(network.compact(), &clustering, Some(resolution), true)?;
+    let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+    let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
+    let clustering: Clustering = communities_to_clustering(&labeled_network, communities)?;
+    let quality: f64 = quality::quality(labeled_network.compact(), &clustering, Some(resolution), true)?;
     return Ok(quality);
 }
 
@@ -105,7 +107,8 @@ pub fn hierarchical_leiden(
     );
     log!("Adding {} edges to network builder", edges.len());
 
-    let labeled_network: LabeledNetwork = LabeledNetwork::from(edges, use_modularity);
+    let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+    let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
 
     log!("Network built from edges");
     let clustering: Option<Clustering> = match starting_communities {
@@ -123,6 +126,7 @@ pub fn hierarchical_leiden(
         None => XorShiftRng::from_entropy(),
     };
 
+    log!("Running hierarchical leiden over a network of {} nodes, {} edges, with a max_cluster_size of {}", labeled_network.num_nodes(), labeled_network.num_edges(), max_cluster_size);
     let compact_network: &CompactNetwork = labeled_network.compact();
     let internal_clusterings: Vec<leiden::HierarchicalCluster> = leiden::hierarchical_leiden(
         compact_network,
@@ -137,7 +141,8 @@ pub fn hierarchical_leiden(
 
     log!("Completed hierarchical leiden process");
 
-    let mut hierarchical_clustering: Vec<HierarchicalCluster> = Vec::with_capacity(internal_clusterings.len());
+    let mut hierarchical_clustering: Vec<HierarchicalCluster> =
+        Vec::with_capacity(internal_clusterings.len());
     for internal in internal_clusterings {
         let node = labeled_network.label_for(internal.node);
         hierarchical_clustering.push(HierarchicalCluster {
@@ -145,7 +150,7 @@ pub fn hierarchical_leiden(
             cluster: internal.cluster,
             level: internal.level,
             parent_cluster: internal.parent_cluster,
-            is_final_cluster: internal.is_final_cluster
+            is_final_cluster: internal.is_final_cluster,
         });
     }
 
@@ -153,7 +158,7 @@ pub fn hierarchical_leiden(
 }
 
 fn map_from(
-    network: &LabeledNetwork,
+    network: &LabeledNetwork<String>,
     clustering: &Clustering,
 ) -> Result<HashMap<String, usize>, CoreError> {
     let mut map: HashMap<String, usize> = HashMap::with_capacity(clustering.num_nodes());
@@ -165,7 +170,7 @@ fn map_from(
 }
 
 fn communities_to_clustering(
-    network: &LabeledNetwork,
+    network: &LabeledNetwork<String>,
     communities: HashMap<String, usize>,
 ) -> Result<Clustering, PyLeidenError> {
     // if node not found in internal network, bounce
@@ -180,7 +185,7 @@ fn communities_to_clustering(
     for (node, community) in communities {
         all_communities.insert(community);
         let mapped_node: CompactNodeId = network
-            .compact_id_for(node.as_str())
+            .compact_id_for(node)
             .ok_or(PyLeidenError::InvalidCommunityMappingError)?;
         clustering
             .update_cluster_at(mapped_node, community)
