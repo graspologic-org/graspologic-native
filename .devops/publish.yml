@@ -22,5 +22,5 @@ jobs:
         displayName: Authenticate Twine
       - script: |
           cat $(PYPIRC_PATH)
-          twine upload -r essex-pypi --config-file $(PYPIRC_PATH) $(Pipeline.Workspace)/drop*/*.whl
+          twine upload --verbose -r essex-pypi --config-file $(PYPIRC_PATH) $(Pipeline.Workspace)/drop*/*.whl
         displayName: Uploading to PyPI
