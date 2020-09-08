@@ -18,7 +18,7 @@ jobs:
         displayName: Install Twine
       - task: TwineAuthenticate@1
         inputs:
-          artifactFeed: '$(System.TeamProjectId)/essex-pypi'
+          artifactFeed: essex-pypi
         displayName: Authenticate Twine
       - script: |
           cat $(PYPIRC_PATH)
