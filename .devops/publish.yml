@@ -16,9 +16,9 @@ jobs:
       - script: |
           pip install twine
         displayName: Install Twine
-      - task: TwineAuthenticate@0
+      - task: TwineAuthenticate@1
         inputs:
-          artifactFeed: 'essex-pypi'
+          artifactFeed: essex-pypi
         displayName: Authenticate Twine
       - script: |
           cat $(PYPIRC_PATH)
