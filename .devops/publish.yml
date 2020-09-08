@@ -18,7 +18,7 @@ jobs:
         displayName: Install Twine
       - task: TwineAuthenticate@1
         inputs:
-          artifactFeed: essex-pypi
+          artifactFeed: 'Rainbow Narwhal/essex-pypi'
         displayName: Authenticate Twine
       - script: |
           cat $(PYPIRC_PATH)
