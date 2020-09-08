@@ -18,9 +18,9 @@ jobs:
         displayName: Install Twine
       - task: TwineAuthenticate@1
         inputs:
-          artifactFeed: 'Rainbow Narwhal/essex-pypi'
+          artifactFeed: '$(System.TeamProjectId)/essex-pypi'
         displayName: Authenticate Twine
       - script: |
           cat $(PYPIRC_PATH)
-          twine upload --verbose -r 'Rainbow Narwhal/essex-pypi' --config-file $(PYPIRC_PATH) $(Pipeline.Workspace)/drop*/*.whl
+          twine upload -r essex-pypi --config-file $(PYPIRC_PATH) $(Pipeline.Workspace)/drop*/*.whl --verbose 
         displayName: Uploading to PyPI
