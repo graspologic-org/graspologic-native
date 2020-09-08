@@ -136,29 +136,46 @@ where
         // given the updated clustering, generate subnetworks for each cluster comprised solely of the
         // nodes in that cluster, then fast, low-fidelity cluster the subnetworks, merging the results
         // back into the primary clustering before returning
-        let subnetworks_iterator = network.subnetworks_iter(clustering.clone(), None);
-        let num_nodes_per_cluster: Vec<usize> = clustering.num_nodes_per_cluster();
+        let nodes_by_cluster: Vec<Vec<CompactNodeId>> = clustering.nodes_per_cluster();
+        let subnetworks_iterator = network.subnetworks_iter(clustering, &nodes_by_cluster,None);
+        let num_nodes_per_cluster: Vec<u64> = clustering.num_nodes_per_cluster();
+
         let num_subnetworks: usize = clustering.next_cluster_id();
 
         clustering.reset_next_cluster_id();
 
         let mut num_nodes_per_cluster_induced_network: Vec<usize> =
             Vec::with_capacity(num_subnetworks);
-        let max_subnetwork_size: usize = num_nodes_per_cluster.into_iter().max().unwrap();
+        let max_subnetwork_size: u64 = *num_nodes_per_cluster.iter().max().unwrap();
         let mut subnetwork_clusterer =
-            SubnetworkClusteringGenerator::with_capacity(max_subnetwork_size);
+            SubnetworkClusteringGenerator::with_capacity(max_subnetwork_size as usize);
 
         for item in subnetworks_iterator {
             progress_meter!("{}% complete", item.id, num_subnetworks);
-            let subnetwork_clustering: Clustering = subnetwork_clusterer.subnetwork_clustering(
-                &item.subnetwork.compact_network,
-                use_modularity,
-                adjusted_resolution,
-                randomness,
-                rng,
-            )?;
-            num_nodes_per_cluster_induced_network.push(subnetwork_clustering.next_cluster_id());
-            clustering.merge_subnetwork_clustering(&item.subnetwork, &subnetwork_clustering);
+            if num_nodes_per_cluster[item.id] == 1 && item.subnetwork.num_nodes() == 0 {
+                // this is a singleton cluster, and cannot move from what it previously was.
+                // the subnetwork actually has no information about the nodes in it, because we don't
+                // store nodes without neighbors in the network objects, so instead we need to ask the iterator
+                // for some internal state
+                let single_node_vec: &Vec<CompactNodeId> = &nodes_by_cluster[item.id];
+                // manually merge this into the clustering object with the right value
+                let singleton_node: &usize = single_node_vec.first().expect("There should be one node here");
+                clustering.update_cluster_at(*singleton_node, clustering.next_cluster_id())?;
+                num_nodes_per_cluster_induced_network.push(1);
+            } else if item.subnetwork.num_nodes() == 0 {
+                // this is a bug, and we should panic
+                panic!("No node network, which shouldn't have happened");
+            } else {
+                let subnetwork_clustering: Clustering = subnetwork_clusterer.subnetwork_clustering(
+                    item.subnetwork.compact(),
+                    use_modularity,
+                    adjusted_resolution,
+                    randomness,
+                    rng,
+                )?;
+                num_nodes_per_cluster_induced_network.push(subnetwork_clustering.next_cluster_id());
+                clustering.merge_subnetwork_clustering(&item.subnetwork, &subnetwork_clustering);
+            }
         }
 
         let induced_clustering_network: CompactNetwork =

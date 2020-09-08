@@ -3,7 +3,7 @@
 
 use super::errors::CoreError;
 use super::safe_vectors::SafeVectors;
-use crate::network::CompactSubnetwork;
+use crate::network::{LabeledNetwork, CompactNodeId};
 use std::collections::HashMap;
 use std::ops::Index;
 
@@ -93,8 +93,8 @@ impl Clustering {
 
     /// Generates a vector of nodes for each cluster with the index referencing the cluster and the
     /// value being a count from 0 upward.
-    pub fn num_nodes_per_cluster(&self) -> Vec<usize> {
-        let mut nodes_per_cluster: Vec<usize> = vec![0 as usize; self.next_cluster_id];
+    pub fn num_nodes_per_cluster(&self) -> Vec<u64> {
+        let mut nodes_per_cluster: Vec<u64> = vec![0 as u64; self.next_cluster_id];
         for i in 0..self.node_to_cluster_mapping.len() {
             nodes_per_cluster[self.node_to_cluster_mapping[i]] += 1;
         }
@@ -103,17 +103,16 @@ impl Clustering {
 
     /// Generates a vector containing every node id for every cluster id. The outer vector index
     /// corresponds to the cluster id, and the values in the inner vectors correspond to the node ids.
-    pub fn nodes_per_cluster(&self) -> Vec<Vec<usize>> {
-        let number_nodes_per_cluster: Vec<usize> = self.num_nodes_per_cluster();
-        let mut nodes_per_cluster_vec: Vec<Vec<usize>> = Vec::with_capacity(self.next_cluster_id);
+    pub fn nodes_per_cluster(&self) -> Vec<Vec<CompactNodeId>> {
+        let number_nodes_per_cluster: Vec<u64> = self.num_nodes_per_cluster();
+        let mut nodes_per_cluster: Vec<Vec<CompactNodeId>> = Vec::with_capacity(self.next_cluster_id);
         for i in 0..self.next_cluster_id {
-            nodes_per_cluster_vec.push(Vec::with_capacity(number_nodes_per_cluster[i]));
+            nodes_per_cluster.push(Vec::with_capacity(number_nodes_per_cluster[i] as usize));
         }
-        for i in 0..self.node_to_cluster_mapping.len() {
-            let cluster: usize = self.node_to_cluster_mapping[i];
-            nodes_per_cluster_vec[cluster].push(i);
+        for (node_id, cluster) in self.node_to_cluster_mapping.iter().enumerate() {
+            nodes_per_cluster[*cluster].push(node_id);
         }
-        return nodes_per_cluster_vec;
+        return nodes_per_cluster;
     }
 
     /// This method compacts the Clustering, removing empty clusters and applying new cluster IDs
@@ -154,10 +153,10 @@ impl Clustering {
 
     pub fn merge_subnetwork_clustering(
         &mut self,
-        subnetwork: &CompactSubnetwork,
+        subnetwork: &LabeledNetwork<CompactNodeId>,
         subnetwork_clustering: &Clustering,
     ) {
-        for (new_id, old_id) in subnetwork.node_id_map.iter().enumerate() {
+        for (new_id, old_id) in subnetwork.labeled_ids() {
             self.node_to_cluster_mapping[*old_id] =
                 self.next_cluster_id + subnetwork_clustering.node_to_cluster_mapping[new_id];
         }

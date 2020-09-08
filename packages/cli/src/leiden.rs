@@ -29,15 +29,16 @@ pub fn leiden(
     skip_first_line: bool,
 ) {
     let start_instant: Instant = Instant::now();
-    let labeled_network: LabeledNetwork = LabeledNetwork::load_from(
+    let labeled_network: LabeledNetwork<String> = LabeledNetwork::<String>::load_from(
         source_edges,
         separator,
         source_index,
         target_index,
         weight_index,
         skip_first_line,
-        use_modularity
-    ).expect("Something went wrong loading");
+        use_modularity,
+    )
+    .expect("Something went wrong loading");
 
     let network: &CompactNetwork = labeled_network.compact();
 
@@ -74,8 +75,13 @@ pub fn leiden(
             let mut output_file: File =
                 File::create(output_path).expect("Unable to open output file for writing");
             for item in &clustering {
-                write!(output_file, "{},{}\n", labeled_network.label_for(item.node_id), item.cluster)
-                    .expect("Could not write entry to file");
+                write!(
+                    output_file,
+                    "{},{}\n",
+                    labeled_network.label_for(item.node_id),
+                    item.cluster
+                )
+                .expect("Could not write entry to file");
             }
         }
         Err(err) => {
