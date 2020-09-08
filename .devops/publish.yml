@@ -18,7 +18,7 @@ jobs:
         displayName: Install Twine
       - task: TwineAuthenticate@0
         inputs:
-          artifactFeeds: 'essex-pypi'
+          artifactFeed: 'essex-pypi'
         displayName: Authenticate Twine
       - script: |
           twine upload -r essex-pypi --config-file $(PYPIRC_PATH) $(Pipeline.Workspace)/drop*/*.whl
