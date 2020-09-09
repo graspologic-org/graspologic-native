@@ -74,7 +74,7 @@ impl PyObjectProtocol for HierarchicalCluster {
 /// :param starting_communities: An optional initial mapping of nodes to their community. Note that
 ///     this function does require that all nodes in the edge list have a community and nodes in the
 ///     community dictionary exist as a node in the provided edge list. The community values must
-///     also be a non negative number.
+///     also be a non negative integer.
 /// :type starting_communities: Optional[Dict[str, int]]
 /// :param float resolution: Default is `1.0`. Higher resolution values lead to more communities and
 ///     lower resolution values leads to fewer communities. Must be greater than 0.
@@ -143,12 +143,12 @@ fn leiden(
 #[text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, max_cluster_size, seed)"]
 /// Hierarchical leiden builds upon the leiden function by further breaking down exceptionally large clusters.
 ///
-/// The process followed is to run leiden the first time, then filtering all cluster with membership
-/// counts >= `max_cluster_size` (default 1000). Any cluster meeting this criteria will then be
-/// turned into a subnetwork, then having the leiden process run over it in isolation. The resulting
-/// clusters are merged into the original clustering as new clusters, the original cluster ID will be
-/// left without any nodes belonging to it.  This is done for each subnetwork, and it is done iteratively
-/// until no cluster contains more than `max_cluster_size` entries.
+/// The process followed is to run leiden the first time, then each cluster with membership
+/// counts >= `max_cluster_size` (default 1000) are isolated and turned into a subnetwork, which
+/// then has the leiden process run over it. The resulting clusters are merged into the original
+/// clustering as new clusters, the original cluster ID will be left without any nodes belonging to
+/// it.  This is done for each subnetwork, and it is done iteratively until no cluster contains more
+/// than `max_cluster_size` entries.
 ///
 /// The results are different from the regular hierarchical leiden as well.  A List of the `HierarchicalCluster`
 /// items is returned.  This HierarchicalCluster describes a node->cluster relationship, by level, and also contains
@@ -163,7 +163,7 @@ fn leiden(
 /// :param starting_communities: An optional initial mapping of nodes to their community. Note that
 ///     this function does require that all nodes in the edge list have a community and nodes in the
 ///     community dictionary exist as a node in the provided edge list. The community values must
-///     also be a non negative number.
+///     also be a non negative integer.
 /// :type starting_communities: Optional[Dict[str, int]]
 /// :param float resolution: Default is `1.0`. Higher resolution values lead to more communities and
 ///     lower resolution values leads to fewer communities. Must be greater than 0.
