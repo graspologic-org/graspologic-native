@@ -6,6 +6,7 @@ use crate::errors::CoreError;
 use crate::log;
 use crate::network::prelude::*;
 use std::collections::VecDeque;
+use std::collections::HashSet;
 
 struct HierarchicalWork {
     subnetwork: LabeledNetwork<CompactNodeId>,
@@ -66,13 +67,15 @@ impl HierarchicalClustering {
         parent_cluster: ClusterId,
         starting_cluster_id: ClusterId,
         level: u32,
-    ) {
+    ) -> usize {
         let ordered_cluster_items: Vec<ClusterItem> = subnetwork_clustering.sorted_cluster_items();
 
         let mut range_start: usize = self.hierarchical_clusterings.len();
         let mut iter_cluster_prev: ClusterId = 0;
+        let mut final_cluster_id: usize = 0;
 
         for cluster_item in ordered_cluster_items {
+            final_cluster_id = cluster_item.cluster + 1;
             let hierarchical_cluster = HierarchicalCluster {
                 node: *subnetwork.label_for(cluster_item.node_id),
                 cluster: cluster_item.cluster + starting_cluster_id,
@@ -96,6 +99,8 @@ impl HierarchicalClustering {
         for old_hierarchical_cluster_entry in start..end {
             self.hierarchical_clusterings[old_hierarchical_cluster_entry].is_final_cluster = false;
         }
+
+        return final_cluster_id;
     }
 
 }
@@ -142,6 +147,7 @@ where
         HierarchicalClustering::new(&updated_clustering);
     let mut work_queue: VecDeque<HierarchicalWork> = VecDeque::new();
     let mut level: u32 = 1;
+    let mut clusters_that_did_not_split: HashSet<usize> = HashSet::new();
 
     let nodes_by_cluster: Vec<Vec<CompactNodeId>> = updated_clustering.nodes_per_cluster();
 
@@ -178,7 +184,7 @@ where
         )?;
         let offset: usize = updated_clustering.next_cluster_id();
 
-        hierarchical_clustering.insert_subnetwork_clustering(
+        let new_clusters: usize = hierarchical_clustering.insert_subnetwork_clustering(
             &subnetwork,
             &subnetwork_clustering,
             work_item.parent_cluster,
@@ -186,11 +192,17 @@ where
             level,
         );
 
+        let mut already_added_cluster : bool = false;
         for clustering_item in &subnetwork_clustering {
             let new_cluster_id: ClusterId = clustering_item.cluster + offset;
             let old_node_id: CompactNodeId = *subnetwork.label_for(clustering_item.node_id);
             updated_clustering
                 .update_cluster_at(old_node_id, new_cluster_id)?;
+            if new_clusters == 1 && !already_added_cluster {
+                log!("Cluster {} did not split so we will not re-process it.", new_cluster_id);
+                clusters_that_did_not_split.insert(new_cluster_id);
+                already_added_cluster = true;
+            }
         }
 
         if work_queue.is_empty() {
@@ -199,7 +211,7 @@ where
             let nodes_by_cluster: Vec<Vec<CompactNodeId>> = updated_clustering.nodes_per_cluster();
             for subnetwork in network.subnetworks_iter(&updated_clustering, &nodes_by_cluster, Some(max_cluster_size))
             {
-                if nodes_by_cluster[subnetwork.id].len() > 1 {
+                if nodes_by_cluster[subnetwork.id].len() > 1 && !clusters_that_did_not_split.contains(&subnetwork.id) {
                     work_queue.push_back(HierarchicalWork {
                         subnetwork: subnetwork.subnetwork,
                         parent_cluster: subnetwork.id,
