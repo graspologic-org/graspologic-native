@@ -199,6 +199,9 @@ where
             updated_clustering
                 .update_cluster_at(old_node_id, new_cluster_id)?;
             if new_clusters == 1 && !already_added_cluster {
+                // If the parent cluster did not split into multiple sub-clusters then
+                // add the sub-cluster ID to the set so we don't recurse into it again.
+                // Continue processing the cluster so all nodes get assigned to the cluster.
                 log!("Cluster {} did not split so we will not re-process it.", new_cluster_id);
                 clusters_that_did_not_split.insert(new_cluster_id);
                 already_added_cluster = true;
@@ -211,6 +214,8 @@ where
             let nodes_by_cluster: Vec<Vec<CompactNodeId>> = updated_clustering.nodes_per_cluster();
             for subnetwork in network.subnetworks_iter(&updated_clustering, &nodes_by_cluster, Some(max_cluster_size))
             {
+                // Push the current subgraph onto the work_queue if-and-only-if the subgraph
+                // has more than one node AND the parent graph has more than one subgraph.
                 if nodes_by_cluster[subnetwork.id].len() > 1 && !clusters_that_did_not_split.contains(&subnetwork.id) {
                     work_queue.push_back(HierarchicalWork {
                         subnetwork: subnetwork.subnetwork,
