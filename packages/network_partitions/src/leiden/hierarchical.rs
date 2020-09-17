@@ -168,8 +168,6 @@ where
         });
     }
 
-    // return Ok(Vec::new());
-
     while !work_queue.is_empty() {
         let work_item: HierarchicalWork = work_queue.pop_front().unwrap();
         let subnetwork: LabeledNetwork<CompactNodeId> = work_item.subnetwork;
@@ -184,29 +182,26 @@ where
         )?;
         let offset: usize = updated_clustering.next_cluster_id();
 
-        let new_clusters: usize = hierarchical_clustering.insert_subnetwork_clustering(
-            &subnetwork,
-            &subnetwork_clustering,
-            work_item.parent_cluster,
-            offset,
-            level,
-        );
-
-        let mut already_added_cluster : bool = false;
-        for clustering_item in &subnetwork_clustering {
-            let new_cluster_id: ClusterId = clustering_item.cluster + offset;
-            let old_node_id: CompactNodeId = *subnetwork.label_for(clustering_item.node_id);
-            updated_clustering
-                .update_cluster_at(old_node_id, new_cluster_id)?;
-            if new_clusters == 1 && !already_added_cluster {
-                // If the parent cluster did not split into multiple sub-clusters then
-                // add the sub-cluster ID to the set so we don't recurse into it again.
-                // Continue processing the cluster so all nodes get assigned to the cluster.
-                log!("Cluster {} did not split so we will not re-process it.", new_cluster_id);
-                clusters_that_did_not_split.insert(new_cluster_id);
-                already_added_cluster = true;
+        if subnetwork_clustering.next_cluster_id() == 1 {
+            // we couldn't break this cluster down any further.
+            clusters_that_did_not_split.insert(work_item.parent_cluster);
+            log!("Cluster {} did not split so we will not re-process it.", work_item.parent_cluster);
+        } else {
+            hierarchical_clustering.insert_subnetwork_clustering(
+                &subnetwork,
+                &subnetwork_clustering,
+                work_item.parent_cluster,
+                offset,
+                level,
+            );
+            for clustering_item in &subnetwork_clustering {
+                let new_cluster_id: ClusterId = clustering_item.cluster + offset;
+                let old_node_id: CompactNodeId = *subnetwork.label_for(clustering_item.node_id);
+                updated_clustering
+                    .update_cluster_at(old_node_id, new_cluster_id)?;
             }
         }
+
 
         if work_queue.is_empty() {
             log!("Level {} complete, seeking any other clusters larger than {} size for further refinement", level, max_cluster_size);
@@ -225,5 +220,6 @@ where
             }
         }
     }
+    log!("Unable to break down {} clusters, {:?}", clusters_that_did_not_split.len(), clusters_that_did_not_split);
     return Ok(hierarchical_clustering.hierarchical_clusterings);
 }
