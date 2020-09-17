@@ -185,7 +185,7 @@ where
         if subnetwork_clustering.next_cluster_id() == 1 {
             // we couldn't break this cluster down any further.
             clusters_that_did_not_split.insert(work_item.parent_cluster);
-            log!("Cluster {} did not split so we will not re-process it.", new_cluster_id);
+            log!("Cluster {} did not split so we will not re-process it.", work_item.parent_cluster);
         } else {
             hierarchical_clustering.insert_subnetwork_clustering(
                 &subnetwork,
