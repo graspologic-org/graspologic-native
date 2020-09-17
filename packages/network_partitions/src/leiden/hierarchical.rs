@@ -220,5 +220,6 @@ where
             }
         }
     }
+    log!("Unable to break down {} clusters, {:?}", clusters_that_did_not_split.len(), clusters_that_did_not_split);
     return Ok(hierarchical_clustering.hierarchical_clusterings);
 }
