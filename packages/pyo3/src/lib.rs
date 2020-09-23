@@ -10,9 +10,8 @@ use std::collections::{HashMap, HashSet};
 
 use pyo3::exceptions::{TypeError, ValueError};
 use pyo3::prelude::*;
-use pyo3::{create_exception, wrap_pyfunction, wrap_pymodule};
+use pyo3::{create_exception, wrap_pyfunction, wrap_pymodule, PyObjectProtocol};
 
-use pyo3::type_object::initialize_type;
 use pyo3::types::{PyDict, PyInt, PyList, PyString, PyTuple};
 
 use network_partitions::clustering::Clustering;
@@ -39,6 +38,25 @@ pub struct HierarchicalCluster {
     is_final_cluster: bool,
 }
 
+#[pyproto]
+impl PyObjectProtocol for HierarchicalCluster {
+    fn __repr__(&self) -> PyResult<String> {
+        let parent: String = self.parent_cluster.map(|level| { level.to_string() }).unwrap_or("None".into());
+        return Ok(format!(
+            "HierarchicalCluster(node=\"{}\", cluster=\"{}\", level={}, parent_cluster={}, is_final_cluster={})",
+            self.node,
+            self.cluster,
+            self.level,
+            parent,
+            self.is_final_cluster,
+        ));
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        return self.__repr__();
+    }
+}
+
 #[pyfunction(
     "*",
     resolution = "1.0",
@@ -46,15 +64,17 @@ pub struct HierarchicalCluster {
     iterations = "1",
     use_modularity = "true"
 )]
-#[text_signature = "(edges, /starting_communities, resolution, randomness, iterations, use_modularity, seed)"]
-/// Leiden is a community detection algorithm based on the Louvain algorithm.
+#[text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, seed)"]
+/// Leiden is a global network partitioning algorithm. Given a list of edges and a maximization
+/// function, it will iterate through the network attempting to find an optimal partitioning of
+/// the entire network.
 ///
-/// :param edges: A list of edges.
+/// :param edges: A list of edges, defined with the source and target encoded as strings and the edge weight being a float.
 /// :type edges: List[Tuple[str, str, float]]
 /// :param starting_communities: An optional initial mapping of nodes to their community. Note that
 ///     this function does require that all nodes in the edge list have a community and nodes in the
 ///     community dictionary exist as a node in the provided edge list. The community values must
-///     also be a non negative number.
+///     also be a non negative integer.
 /// :type starting_communities: Optional[Dict[str, int]]
 /// :param float resolution: Default is `1.0`. Higher resolution values lead to more communities and
 ///     lower resolution values leads to fewer communities. Must be greater than 0.
@@ -120,15 +140,30 @@ fn leiden(
     use_modularity = "true",
     max_cluster_size = "1000"
 )]
-#[text_signature = "(edges, /starting_communities, resolution, randomness, iterations, use_modularity, max_cluster_size, seed)"]
-/// Leiden is a community detection algorithm based on the Louvain algorithm.
+#[text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, max_cluster_size, seed)"]
+/// Hierarchical leiden builds upon the leiden function by further breaking down exceptionally large clusters.
 ///
-/// :param edges: A list of edges.
+/// The process followed is to run leiden the first time, then each cluster with membership
+/// counts >= `max_cluster_size` (default 1000) are isolated and turned into a subnetwork, which
+/// then has the leiden process run over it. The resulting clusters are merged into the original
+/// clustering as new clusters, the original cluster ID will be left without any nodes belonging to
+/// it.  This is done for each subnetwork, and it is done iteratively until no cluster contains more
+/// than `max_cluster_size` entries.
+///
+/// The results are different from the regular hierarchical leiden as well.  A List of the `HierarchicalCluster`
+/// items is returned.  This HierarchicalCluster describes a node->cluster relationship, by level, and also contains
+/// a link back to the parent/previous cluster, and a flag denoting whether it is the final clustering
+/// for a given node or not.
+///
+/// This hierarchical structure allows us to navigate our clusterings by breaking down truly large
+/// clusters into smaller, fine grained clusters, but still be able to see the larger clustered structure.
+///
+/// :param edges: A list of edges, defined with the source and target encoded as strings and the edge weight being a float.
 /// :type edges: List[Tuple[str, str, float]]
 /// :param starting_communities: An optional initial mapping of nodes to their community. Note that
 ///     this function does require that all nodes in the edge list have a community and nodes in the
 ///     community dictionary exist as a node in the provided edge list. The community values must
-///     also be a non negative number.
+///     also be a non negative integer.
 /// :type starting_communities: Optional[Dict[str, int]]
 /// :param float resolution: Default is `1.0`. Higher resolution values lead to more communities and
 ///     lower resolution values leads to fewer communities. Must be greater than 0.
@@ -146,7 +181,9 @@ fn leiden(
 /// :param Optional[int] seed: Default is `None`. If provided, the seed will be used in creating the
 ///     Pseudo-Random Number Generator at a known state, making runs over the same network and
 ///     starting_communities with the same parameters end with the same results.
-/// :return: A dictionary of node to community ids. The community ids will start at 0 and increment.
+/// :return: A list of HierarchicalCluster entries. A hierarchical cluster contains a node id, the
+///     cluster id, the level, an optional parent, and whether or not it is the final entry for that
+///     node.
 /// :rtype: List[HierarchicalCluster]
 /// :raises ClusterIndexingError:
 /// :raises EmptyNetworkError:
@@ -190,7 +227,20 @@ fn hierarchical_leiden(
 }
 
 #[pyfunction("*", resolution = "1.0")]
-#[text_signature = "(edges, communities, /resolution)"]
+#[text_signature = "(edges, communities, /, resolution)"]
+/// Measures the modularity for a global partitioning of a network described by a list of edges.
+///
+/// :param edges: A list of edges, defined with the source and target encoded as strings and the edge weight being a float.
+/// :type edges: List[Tuple[str, str, float]]
+/// :param communities: An optional initial mapping of nodes to their community. Note that
+///     this function does require that all nodes in the edge list have a community and nodes in the
+///     community dictionary exist as a node in the provided edge list. The community values must
+///     also be a non negative number.
+/// :type starting_communities: Dict[str, int]
+/// :param float resolution: Default is `1.0`. Higher resolution values lead to more communities and
+///     lower resolution values leads to fewer communities. Must be greater than 0.
+/// :return: The modularity of the community partitioning provided for the network.
+/// :rtype: float
 fn modularity(
     py: Python,
     edges: Vec<Edge>,

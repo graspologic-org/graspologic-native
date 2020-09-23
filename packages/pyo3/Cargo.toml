@@ -1,7 +1,7 @@
 [package]
 name = "topologic_native"
 version = "0.1.0"
-authors = ["Dwayne Pryce <dwpryce@microsoft.com>"]
+authors = ["dwpryce@microsoft.com"]
 edition = "2018"
 license = "MIT"
 description = ""
@@ -11,7 +11,7 @@ name = "topologic_native"
 crate-type = ["rlib","cdylib"]
 
 [dependencies]
-pyo3 = "0.8.5"
+pyo3 = "0.11.1"
 rand = "0.7"
 rand_xorshift = "0.2"
 network_partitions = { path = "../network_partitions" }
