@@ -12,5 +12,5 @@ jobs:
         echo "$(Pipeline.Workspace)"
         ls -R $(Pipeline.Workspace)
         mkdir wheels
-        cp drop*/*.whl wheels
+        find . -name *.whl -print0 | xargs -I % -0 mv % wheels
         ls wheels
