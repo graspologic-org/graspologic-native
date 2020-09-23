@@ -1,5 +1,5 @@
 jobs:
-- template: common-build.yml
+- template: build.yml
 - job: signing_area
   dependsOn: python_build
   displayName: Signing Test Area
