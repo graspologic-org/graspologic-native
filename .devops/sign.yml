@@ -11,3 +11,6 @@ jobs:
     - script: |
         echo "$(Pipeline.Workspace)"
         ls -R $(Pipeline.Workspace)
+        mkdir wheels
+        cp drop*/*.whl wheels
+        ls wheels
