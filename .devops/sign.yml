@@ -13,3 +13,7 @@ jobs:
         find $(Pipeline.Workspace) -name *.whl
         find $(Pipeline.Workspace) -name *.whl -print0 | xargs -I % -0 mv -v % wheels/
         ls -ahl wheels
+        cd wheels
+        find . -name *.whl -print0 | xargs -I % -0 unzip % -d %_unzipped
+        ls -R 
+      displayName: "Unpack and sign and stuff"
