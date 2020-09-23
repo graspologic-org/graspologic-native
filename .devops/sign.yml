@@ -9,6 +9,7 @@ jobs:
     - download: current
       patterns: '**/*.whl'
     - script: |
+        set -x
         mkdir wheels
         find $(Pipeline.Workspace) -name *.whl
         find $(Pipeline.Workspace) -name *.whl -print0 | xargs -I % -0 mv -v % wheels/
