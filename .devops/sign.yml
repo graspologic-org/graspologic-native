@@ -10,5 +10,5 @@ jobs:
       patterns: '**/*.whl'
     - script: |
         mkdir wheels
-        find . -name *.whl -print0 | xargs -I % -0 mv % wheels
-        ls wheels
+        find . -name *.whl -print0 | xargs -I % -0 mv -v % wheels/
+        ls -ahl wheels
