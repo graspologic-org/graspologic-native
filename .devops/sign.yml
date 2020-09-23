@@ -15,5 +15,6 @@ jobs:
         find $(Pipeline.Workspace) -name *.whl -print0 | xargs -I % -0 mv -v % wheels/
         ls -ahl wheels
         cd wheels
-        find . -name '*.whl' -print0 | xargs -I % -0 ls -ahl %
+        find . -name '*.whl' -print0 | xargs -I % -0 unzip -d %_unzipped %
+        ls -ahlR
       displayName: "Unpack and sign and stuff"
