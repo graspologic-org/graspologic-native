@@ -236,7 +236,7 @@ fn hierarchical_leiden(
 ///     this function does require that all nodes in the edge list have a community and nodes in the
 ///     community dictionary exist as a node in the provided edge list. The community values must
 ///     also be a non negative number.
-/// :type starting_communities: Dict[str, int]
+/// :type communities: Dict[str, int]
 /// :param float resolution: Default is `1.0`. Higher resolution values lead to more communities and
 ///     lower resolution values leads to fewer communities. Must be greater than 0.
 /// :return: The modularity of the community partitioning provided for the network.
