@@ -20,8 +20,20 @@ jobs:
         with:
           name: cargo-toml
           path: packages/pyo3/Cargo.toml
+  code-check-rust:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v2
+      - name: Rust build tools
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt
+      - name: Check format
+        run: |
+          cargo fmt -- --check
   build-rust:
-    needs: "materialize-build-version"
+    needs: ["materialize-build-version", "code-check-rust"]
     runs-on: ${{ matrix.os }}
     continue-on-error: true
     strategy:
@@ -50,11 +62,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
-          components: rustfmt
-      - name: Run Format Check
-        run: |
-          rustup component add rustfmt --toolchain nightly
-          cargo fmt -- --check
+          profile: minimal
       - name: Test
         run: |
           cargo test
