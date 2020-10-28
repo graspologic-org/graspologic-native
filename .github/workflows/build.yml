@@ -38,7 +38,7 @@ jobs:
           name: cargo-toml
           path: materialized
       - name: "Windows move has problems with overwriting"
-        if: runner.os == "Windows"
+        if: ${{ runner.os == "Windows" }}
         run: |
           rm packages/pyo3/Cargo.toml
       - name: Update python environment
