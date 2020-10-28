@@ -98,10 +98,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ GRASPOLOGIC_VERSION }}
-          release_name: graspologic-native-testbuild-${{ GRASPOLOGIC_VERSION }}
+          tag_name: ${{ outputs.GRASPOLOGIC_VERSION }}
+          release_name: graspologic-native-testbuild-${{ outputs.GRASPOLOGIC_VERSION }}
           body_path: "checksums.txt"
-          prerelease: ${{ GRASPOLOGIC_PRERELEASE }}
+          prerelease: ${{ outputs.GRASPOLOGIC_PRERELEASE }}
 #      - name: Install dependencies
 #        run: |
 #          python -m pip install -U pip setuptools wheel twine
