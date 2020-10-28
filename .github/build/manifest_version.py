@@ -18,7 +18,7 @@ BUILD_SYSTEM = "github"
 REF_KEY = "GITHUB_REF"
 BUILD_ID = "GITHUB_RUN_ID"
 
-if len(sys.argv) != 4:
+if len(sys.argv) != 3:
     print(f"Called with wrong arguments, requires: `python {sys.argv[0]} TOML_PATH VERSION_FILE_PATH")
     sys.exit(-1)
 
