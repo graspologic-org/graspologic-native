@@ -27,6 +27,7 @@ jobs:
       - name: Check format
         run: |
           rustup default nightly
+          rustup component add rustfmt --toolchain nightly
           cargo fmt -- --check
   build-rust:
     needs: ["materialize-build-version", "code-check-rust"]
