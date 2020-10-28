@@ -59,11 +59,10 @@ jobs:
         run: |
           rustup default nightly
           cargo test --manifest-path packages/network_partitions/Cargo.toml
-          cargo test
       - name: Package Python
         run: |
           cd packages/pyo3
-          python ${{github.workspace}}/.github/build/homogenized_maturin_build.py $(python_version)
+          python ${{github.workspace}}/.github/build/homogenized_maturin_build.py ${{matrix.python_version}}
       - uses: actions/upload-artifact@v2
         with:
           name: wheels
