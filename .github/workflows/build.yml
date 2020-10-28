@@ -15,11 +15,7 @@ jobs:
           pip install toml
           python .github/build/manifest_version.py packages/pyo3/Cargo.toml version.txt
           GRASPOLOGIC_VERSION=$(cat version.txt)
-          echo "::set-output name=GRASPOLOGIC_VERSION::$GRASPOLOGIC_VERSION"
-          # echo "GRASPOLOGIC_VERSION=$GRASPOLOGIC_VERSION" >> $GITHUB_ENV
-#        outputs:
-#          GRASPOLOGIC_VERSION:
-#            description: "Release or pre-release version of graspologic-native"
+          echo "GRASPOLOGIC_VERSION=$GRASPOLOGIC_VERSION" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v2
         with:
           name: cargo-toml
@@ -67,7 +63,7 @@ jobs:
           path: target/wheels/*.whl
   publish:
     runs-on: ubuntu-latest
-    needs: [build-rust]
+    needs: "build-rust"
     if: github.ref=='refs/heads/main' || github.ref=='refs/heads/dev'
     steps:
       - uses: actions/checkout@v2
@@ -86,22 +82,19 @@ jobs:
       - name: Is Prerelease?
         run: |
           if [[ "$GITHUB_REF" == "ref/heads/dev" ]]; then
-            echo "::set-output name=GRASPOLOGIC_PRERELEASE::true"
+            echo "GRASPOLOGIC_PRERELEASE=true" >> $GITHUB_ENV
           else
-            echo "::set-output name=GRASPOLOGIC_PRERELEASE::false"
+            echo "GRASPOLOGIC_PRERELEASE=false" >> $GITHUB_ENV
           fi
-#        outputs:
-#          GRASPOLOGIC_PRERELEASE:
-#            description: "Are we a prerelease?"
       - name: Create Github Release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ outputs.GRASPOLOGIC_VERSION }}
-          release_name: graspologic-native-testbuild-${{ outputs.GRASPOLOGIC_VERSION }}
+          tag_name: ${{ env.GRASPOLOGIC_VERSION }}
+          release_name: graspologic-native-testbuild-${{ env.GRASPOLOGIC_VERSION }}
           body_path: "checksums.txt"
-          prerelease: ${{ outputs.GRASPOLOGIC_PRERELEASE }}
+          prerelease: ${{ env.GRASPOLOGIC_PRERELEASE }}
 #      - name: Install dependencies
 #        run: |
 #          python -m pip install -U pip setuptools wheel twine
