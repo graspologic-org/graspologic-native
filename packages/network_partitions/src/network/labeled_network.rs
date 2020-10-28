@@ -328,7 +328,7 @@ pub mod tests {
     fn test_from_cpm() {
         let edges = edge_list();
         let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
-        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), false);
         let (expected_label_map, expected_label_order) = expected_label_mappings();
         assert_eq!(expected_label_order, labeled_network.id_to_labels);
         assert_eq!(expected_label_map, labeled_network.labels_to_id);

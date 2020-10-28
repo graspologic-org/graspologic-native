@@ -58,6 +58,7 @@ jobs:
       - name: Test
         run: |
           rustup default nightly
+          cd packages/network_partitions
           cargo test
       - name: Package Python
         run: |

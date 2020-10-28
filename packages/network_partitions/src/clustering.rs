@@ -288,13 +288,13 @@ mod tests {
             node_to_cluster_mapping: vec![1, 1, 4, 3, 0, 0, 5, 2],
             next_cluster_id: 6,
         };
-        let expected: Vec<usize> = vec![2, 2, 1, 1, 1, 1];
+        let expected: Vec<u64> = vec![2, 2, 1, 1, 1, 1];
         assert_eq!(expected, clustering.num_nodes_per_cluster());
         let clustering: Clustering = Clustering {
             node_to_cluster_mapping: vec![],
             next_cluster_id: 0,
         };
-        let expected: Vec<usize> = Vec::new();
+        let expected: Vec<u64> = Vec::new();
         assert_eq!(expected, clustering.num_nodes_per_cluster());
     }
 
