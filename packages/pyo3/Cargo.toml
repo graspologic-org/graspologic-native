@@ -1,5 +1,5 @@
 [package]
-name = "topologic_native"
+name = "graspologic_native"
 version = "0.1.0"
 authors = ["dwpryce@microsoft.com"]
 edition = "2018"
@@ -7,7 +7,7 @@ license = "MIT"
 description = ""
 
 [lib]
-name = "topologic_native"
+name = "graspologic_native"
 crate-type = ["rlib","cdylib"]
 
 [dependencies]

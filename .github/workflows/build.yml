@@ -92,7 +92,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ GRASPOLOGIC_VERSION }}
-          release_name: ${{ GRASPOLOGIC_VERSION }}
+          release_name: graspologic-native-testbuild-${{ GRASPOLOGIC_VERSION }}
           body_path: "checksums.txt"
           prerelease: ${{ GRASPOLOGIC_PRERELEASE }}
 #      - name: Install dependencies
