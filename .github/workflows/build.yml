@@ -22,7 +22,7 @@ jobs:
           path: packages/pyo3/Cargo.toml
   build-rust:
     needs: "materialize-build-version"
-    runs-on: ${{matrix.os}}
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
@@ -37,14 +37,16 @@ jobs:
         with:
           name: cargo-toml
           path: materialized
-      - name: "Windows move has problems with overwriting"
-        if: runner.os=='Windows'
+#      - name: "Cargo Delete (Windows)"
+#        if: runner.os=='Windows'
+#        run: |
+#          rm packages/pyo3/Cargo.toml
+      - name: "Materialized Cargo Placement"
         run: |
-          rm packages/pyo3/Cargo.toml
+          mv packages/pyo3/Cargo.toml Cargo.toml.old
+          mv materialized/Cargo.toml packages/pyo3/Cargo.toml
       - name: Update python environment
         run: |
-          mv --help
-          mv materialized/Cargo.toml packages/pyo3/Cargo.toml
           pip install -U pip setuptools wheel
           pip install maturin
       - name: Rust build tools
