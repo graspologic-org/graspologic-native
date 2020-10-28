@@ -15,7 +15,11 @@ jobs:
           pip install toml
           python .github/build/manifest_version.py packages/pyo3/Cargo.toml version.txt
           GRASPOLOGIC_VERSION=$(cat version.txt)
-          echo "GRASPOLOGIC_VERSION=$GRASPOLOGIC_VERSION" >> $GITHUB_ENV
+          echo "::set-output name=GRASPOLOGIC_VERSION::$GRASPOLOGIC_VERSION"
+          # echo "GRASPOLOGIC_VERSION=$GRASPOLOGIC_VERSION" >> $GITHUB_ENV
+        outputs:
+          GRASPOLOGIC_VERSION:
+            description: "Release or pre-release version of graspologic-native"
       - uses: actions/upload-artifact@v2
         with:
           name: cargo-toml
@@ -82,10 +86,13 @@ jobs:
       - name: Is Prerelease?
         run: |
           if [[ "$GITHUB_REF" == "ref/heads/dev" ]]; then
-            echo "GRASPOLOGIC_PRERELEASE=true" >> $GITHUB_ENV;
+            echo "::set-output name=GRASPOLOGIC_PRERELEASE::true"
           else
-            echo "GRASPOLOGIC_PRERELEASE=false" >> $GITHUB_ENV;
+            echo "::set-output name=GRASPOLOGIC_PRERELEASE::false"
           fi
+        outputs:
+          GRASPOLOGIC_PRERELEASE:
+            description: "Are we a prerelease?"
       - name: Create Github Release
         uses: actions/create-release@v1
         env:
