@@ -24,13 +24,9 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
       - uses: actions/checkout@v2
-      - name: Rust build tools
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          components: rustfmt
       - name: Check format
         run: |
+          rustup default nightly
           cargo fmt -- --check
   build-rust:
     needs: ["materialize-build-version", "code-check-rust"]
@@ -58,13 +54,9 @@ jobs:
         run: |
           pip install -U pip setuptools wheel
           pip install maturin
-      - name: Rust build tools
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          profile: minimal
       - name: Test
         run: |
+          rustup default nightly
           cargo test
       - name: Package Python
         run: |
