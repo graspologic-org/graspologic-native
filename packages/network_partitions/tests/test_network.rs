@@ -16,7 +16,15 @@ mod tests {
         assert_eq!(10, labeled_network.num_nodes());
 
         let result: Result<LabeledNetwork<String>, NetworkError> =
-            LabeledNetwork::<String>::load_from(broken_network_path, ",", 0, 1, Some(2), false, true);
+            LabeledNetwork::<String>::load_from(
+                broken_network_path,
+                ",",
+                0,
+                1,
+                Some(2),
+                false,
+                true,
+            );
         assert!(result.is_err());
         match result.err() {
             Some(NetworkError::EdgeFileFormatError) => assert!(true),
