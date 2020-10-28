@@ -47,11 +47,14 @@ pub struct LabeledNetworkBuilder<T> {
     identifier: Identifier<T>,
 }
 
-impl <T> LabeledNetworkBuilder<T> where T: Clone + Eq + Hash + PartialEq + std::cmp::PartialEq  {
+impl<T> LabeledNetworkBuilder<T>
+where
+    T: Clone + Eq + Hash + PartialEq + std::cmp::PartialEq,
+{
     pub fn new() -> Self {
         let builder: LabeledNetworkBuilder<T> = LabeledNetworkBuilder {
             node_to_neighbors: HashMap::new(),
-            identifier: Identifier::new()
+            identifier: Identifier::new(),
         };
         return builder;
     }
@@ -59,7 +62,7 @@ impl <T> LabeledNetworkBuilder<T> where T: Clone + Eq + Hash + PartialEq + std::
     pub fn with_capacity(size: usize) -> Self {
         let builder: LabeledNetworkBuilder<T> = LabeledNetworkBuilder {
             node_to_neighbors: HashMap::with_capacity(size),
-            identifier: Identifier::new()
+            identifier: Identifier::new(),
         };
         return builder;
     }
@@ -67,13 +70,17 @@ impl <T> LabeledNetworkBuilder<T> where T: Clone + Eq + Hash + PartialEq + std::
     pub fn build<I>(
         &mut self,
         edges_iter: I,
-        use_modularity: bool
-    ) -> LabeledNetwork<T> where I: Iterator<Item=(T, T, f64)>{
+        use_modularity: bool,
+    ) -> LabeledNetwork<T>
+    where
+        I: Iterator<Item = (T, T, f64)>,
+    {
         // set up our working area first
         self.node_to_neighbors.clear();
         self.identifier.clear();
 
-        let node_to_neighbors: &mut HashMap<CompactNodeId, HashMap<CompactNodeId, f64>> = &mut self.node_to_neighbors;
+        let node_to_neighbors: &mut HashMap<CompactNodeId, HashMap<CompactNodeId, f64>> =
+            &mut self.node_to_neighbors;
 
         // set up our target vectors for the CompactNetwork
         let mut nodes: Vec<CompactNode> = Vec::new();
@@ -133,7 +140,10 @@ impl <T> LabeledNetworkBuilder<T> where T: Clone + Eq + Hash + PartialEq + std::
     }
 }
 
-impl<T> LabeledNetwork<T> where T: Clone + Eq + Hash + PartialEq + std::cmp::PartialEq  {
+impl<T> LabeledNetwork<T>
+where
+    T: Clone + Eq + Hash + PartialEq + std::cmp::PartialEq,
+{
     /// Superficially this seems like an easy task. Get the edges, add them. But we don't *know*
     /// that the edges provided are already in sorted source order (e.g. all edges from A to <N>
     /// all appear sequentially in the list.
@@ -157,7 +167,7 @@ impl<T> LabeledNetwork<T> where T: Clone + Eq + Hash + PartialEq + std::cmp::Par
         return &self.id_to_labels[compact_id];
     }
 
-    pub fn labeled_ids(&self) -> impl Iterator<Item=(CompactNodeId, &T)> + '_ {
+    pub fn labeled_ids(&self) -> impl Iterator<Item = (CompactNodeId, &T)> + '_ {
         return self.id_to_labels.iter().enumerate();
     }
 
@@ -198,7 +208,8 @@ impl<T> LabeledNetwork<T> where T: Clone + Eq + Hash + PartialEq + std::cmp::Par
         }
 
         let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
-        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
+        let labeled_network: LabeledNetwork<String> =
+            builder.build(edges.into_iter(), use_modularity);
 
         return Ok(labeled_network);
     }

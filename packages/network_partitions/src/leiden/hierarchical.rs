@@ -5,8 +5,8 @@ use crate::clustering::{ClusterItem, Clustering};
 use crate::errors::CoreError;
 use crate::log;
 use crate::network::prelude::*;
-use std::collections::VecDeque;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 
 struct HierarchicalWork {
     subnetwork: LabeledNetwork<CompactNodeId>,
@@ -102,7 +102,6 @@ impl HierarchicalClustering {
 
         return final_cluster_id;
     }
-
 }
 
 trait OrderedClustering {
@@ -185,7 +184,10 @@ where
         if subnetwork_clustering.next_cluster_id() == 1 {
             // we couldn't break this cluster down any further.
             clusters_that_did_not_split.insert(work_item.parent_cluster);
-            log!("Cluster {} did not split so we will not re-process it.", work_item.parent_cluster);
+            log!(
+                "Cluster {} did not split so we will not re-process it.",
+                work_item.parent_cluster
+            );
         } else {
             hierarchical_clustering.insert_subnetwork_clustering(
                 &subnetwork,
@@ -197,21 +199,24 @@ where
             for clustering_item in &subnetwork_clustering {
                 let new_cluster_id: ClusterId = clustering_item.cluster + offset;
                 let old_node_id: CompactNodeId = *subnetwork.label_for(clustering_item.node_id);
-                updated_clustering
-                    .update_cluster_at(old_node_id, new_cluster_id)?;
+                updated_clustering.update_cluster_at(old_node_id, new_cluster_id)?;
             }
         }
-
 
         if work_queue.is_empty() {
             log!("Level {} complete, seeking any other clusters larger than {} size for further refinement", level, max_cluster_size);
             level += 1;
             let nodes_by_cluster: Vec<Vec<CompactNodeId>> = updated_clustering.nodes_per_cluster();
-            for subnetwork in network.subnetworks_iter(&updated_clustering, &nodes_by_cluster, Some(max_cluster_size))
-            {
+            for subnetwork in network.subnetworks_iter(
+                &updated_clustering,
+                &nodes_by_cluster,
+                Some(max_cluster_size),
+            ) {
                 // Push the current subgraph onto the work_queue if-and-only-if the subgraph
                 // has more than one node AND the parent graph has more than one subgraph.
-                if nodes_by_cluster[subnetwork.id].len() > 1 && !clusters_that_did_not_split.contains(&subnetwork.id) {
+                if nodes_by_cluster[subnetwork.id].len() > 1
+                    && !clusters_that_did_not_split.contains(&subnetwork.id)
+                {
                     work_queue.push_back(HierarchicalWork {
                         subnetwork: subnetwork.subnetwork,
                         parent_cluster: subnetwork.id,
@@ -220,6 +225,10 @@ where
             }
         }
     }
-    log!("Unable to break down {} clusters, {:?}", clusters_that_did_not_split.len(), clusters_that_did_not_split);
+    log!(
+        "Unable to break down {} clusters, {:?}",
+        clusters_that_did_not_split.len(),
+        clusters_that_did_not_split
+    );
     return Ok(hierarchical_clustering.hierarchical_clusterings);
 }

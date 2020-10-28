@@ -1,6 +1,7 @@
 import sys
 import subprocess
 
+
 def execute() -> str:
     maturin_list_interpreters = ["maturin", "list-python"]
 

@@ -87,7 +87,12 @@ pub fn modularity(
     let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
     let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
     let clustering: Clustering = communities_to_clustering(&labeled_network, communities)?;
-    let quality: f64 = quality::quality(labeled_network.compact(), &clustering, Some(resolution), true)?;
+    let quality: f64 = quality::quality(
+        labeled_network.compact(),
+        &clustering,
+        Some(resolution),
+        true,
+    )?;
     return Ok(quality);
 }
 

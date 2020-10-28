@@ -67,13 +67,12 @@
 ///
 /// The EdgeId is the direct index into the edges array for fast lookups of a specific edge,
 /// which is primarily useful to the subnetwork generation functions
-
 use super::networks::NetworkDetails;
 use crate::clustering::Clustering;
 use crate::errors::CoreError;
+use crate::network::{LabeledNetwork, LabeledNetworkBuilder};
 use std::collections::HashMap;
 use std::ops::Range;
-use crate::network::{LabeledNetworkBuilder, LabeledNetwork};
 
 // Simple types that can be exposed
 pub type CompactNodeId = usize;
@@ -223,23 +222,24 @@ impl CompactNetwork {
         clustering: &'a Clustering,
         nodes_by_cluster: &'a Vec<Vec<CompactNodeId>>,
         subnetwork_minimum_size: u32,
-        use_modularity: bool
-    ) -> impl Iterator<Item=CompactSubnetworkItem<CompactNodeId>> + 'a {
-        let mut labeled_network_builder: LabeledNetworkBuilder<CompactNodeId> = LabeledNetworkBuilder::new();
+        use_modularity: bool,
+    ) -> impl Iterator<Item = CompactSubnetworkItem<CompactNodeId>> + 'a {
+        let mut labeled_network_builder: LabeledNetworkBuilder<CompactNodeId> =
+            LabeledNetworkBuilder::new();
         let subnetwork_iterator = nodes_by_cluster
             .iter()
             .enumerate()
             .filter(move |(_cluster_id, nodes_in_cluster)| {
                 nodes_in_cluster.len() >= subnetwork_minimum_size as usize
-            }).map(move |(cluster_id, nodes_in_cluster)| {
+            })
+            .map(move |(cluster_id, nodes_in_cluster)| {
                 let subnetwork_edges = nodes_in_cluster.into_iter().flat_map(|node| {
-                    self.neighbors_for(*node).filter(|neighbor| {
-                        clustering[neighbor.id] == cluster_id
-                    }).map(move |neighbor| {
-                        (*node, neighbor.id, neighbor.edge_weight)
-                    })
+                    self.neighbors_for(*node)
+                        .filter(|neighbor| clustering[neighbor.id] == cluster_id)
+                        .map(move |neighbor| (*node, neighbor.id, neighbor.edge_weight))
                 });
-                let subnetwork: LabeledNetwork<CompactNodeId> = labeled_network_builder.build(subnetwork_edges, use_modularity);
+                let subnetwork: LabeledNetwork<CompactNodeId> =
+                    labeled_network_builder.build(subnetwork_edges, use_modularity);
                 CompactSubnetworkItem {
                     subnetwork,
                     id: cluster_id,
@@ -432,20 +432,24 @@ impl<'a, 'b> Iterator for SubnetworkIterator<'a, 'b> {
                 let nodes = &self.clustered_nodes[current];
                 let cluster_id: usize = current;
 
-                let edges: Vec<(CompactNodeId, CompactNodeId, f64)> = nodes.iter().flat_map(|node_in_cluster| {
-                    // get all neighbors that belong to it and belong in the same cluster
-                    self
-                        .compact_supernetwork
-                        .neighbors_for(*node_in_cluster)
-                        .map(move |neighbor| {
-                            (*node_in_cluster, neighbor.id, neighbor.edge_weight)
-                        }).filter(|edge| {
-                            let edge: (CompactNodeId, CompactNodeId, f64) = *edge;
-                            self.clustering[edge.1] == cluster_id
-                        })
-                }).collect();
+                let edges: Vec<(CompactNodeId, CompactNodeId, f64)> = nodes
+                    .iter()
+                    .flat_map(|node_in_cluster| {
+                        // get all neighbors that belong to it and belong in the same cluster
+                        self.compact_supernetwork
+                            .neighbors_for(*node_in_cluster)
+                            .map(move |neighbor| {
+                                (*node_in_cluster, neighbor.id, neighbor.edge_weight)
+                            })
+                            .filter(|edge| {
+                                let edge: (CompactNodeId, CompactNodeId, f64) = *edge;
+                                self.clustering[edge.1] == cluster_id
+                            })
+                    })
+                    .collect();
 
-                let labeled_network: LabeledNetwork<CompactNodeId> = self.builder.build(edges.into_iter(), true);
+                let labeled_network: LabeledNetwork<CompactNodeId> =
+                    self.builder.build(edges.into_iter(), true);
 
                 self.current_clustered_nodes_index += 1;
                 Some(CompactSubnetworkItem {

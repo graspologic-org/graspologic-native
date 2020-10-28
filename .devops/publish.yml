@@ -1,5 +1,5 @@
 jobs:
-  - template: common-build.yml
+  - template: build.yml
   - job: inclusion_test
     dependsOn: python_build
     displayName: Internal PyPI
@@ -21,6 +21,5 @@ jobs:
           artifactFeed: essex-pypi
         displayName: Authenticate Twine
       - script: |
-          cat $(PYPIRC_PATH)
           twine upload --skip-existing -r essex-pypi --config-file $(PYPIRC_PATH) $(Pipeline.Workspace)/drop*/*.whl --verbose 
         displayName: Uploading to PyPI
