@@ -36,9 +36,10 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: cargo-toml
-          path: packages/pyo3/Cargo.toml
+          path: materialized/Cargo.toml
       - name: Update python environment
         run: |
+          mv materialized/Cargo.toml packages/pyo3/Cargo.toml
           pip install -U pip setuptools wheel
           pip install maturin
       - name: Rust build tools
