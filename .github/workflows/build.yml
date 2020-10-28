@@ -37,9 +37,13 @@ jobs:
         with:
           name: cargo-toml
           path: materialized
+      - name: "Windows move has problems with overwriting"
+        if: runner.os == "Windows"
+        run: |
+          rm packages/pyo3/Cargo.toml
       - name: Update python environment
         run: |
-          ls -R materialized
+          mv -h
           mv materialized/Cargo.toml packages/pyo3/Cargo.toml
           pip install -U pip setuptools wheel
           pip install maturin
