@@ -17,9 +17,9 @@ jobs:
           GRASPOLOGIC_VERSION=$(cat version.txt)
           echo "::set-output name=GRASPOLOGIC_VERSION::$GRASPOLOGIC_VERSION"
           # echo "GRASPOLOGIC_VERSION=$GRASPOLOGIC_VERSION" >> $GITHUB_ENV
-        outputs:
-          GRASPOLOGIC_VERSION:
-            description: "Release or pre-release version of graspologic-native"
+#        outputs:
+#          GRASPOLOGIC_VERSION:
+#            description: "Release or pre-release version of graspologic-native"
       - uses: actions/upload-artifact@v2
         with:
           name: cargo-toml
@@ -90,9 +90,9 @@ jobs:
           else
             echo "::set-output name=GRASPOLOGIC_PRERELEASE::false"
           fi
-        outputs:
-          GRASPOLOGIC_PRERELEASE:
-            description: "Are we a prerelease?"
+#        outputs:
+#          GRASPOLOGIC_PRERELEASE:
+#            description: "Are we a prerelease?"
       - name: Create Github Release
         uses: actions/create-release@v1
         env:
