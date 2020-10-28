@@ -14,12 +14,14 @@ jobs:
           pip install -U pip
           pip install toml
           python .github/build/manifest_version.py packages/pyo3/Cargo.toml version.txt
-          GRASPOLOGIC_VERSION=$(cat version.txt)
-          echo "GRASPOLOGIC_VERSION=$GRASPOLOGIC_VERSION" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v2
         with:
           name: cargo-toml
           path: packages/pyo3/Cargo.toml
+      - uses: actions/upload-artifact@v2
+        with:
+          name: version-txt
+          path: version.txt
   code-check-rust:
     runs-on: "ubuntu-latest"
     steps:
@@ -85,6 +87,15 @@ jobs:
         run: |
           sha256sum dist/*.whl > checksums.txt
           cat checksums.txt
+      - uses: actions/download-artifact@v2
+        with:
+          name: version-txt
+          path: version/
+      - name: Release Tag from Version
+        run: |
+          GRASPOLOGIC_VERSION=$(cat version/version.txt)
+          echo "GRASPOLOGIC_VERSION=$GRASPOLOGIC_VERSION" >> $GITHUB_ENV
+          echo $GRASPOLOGIC_VERSION
       - name: Is Prerelease?
         run: |
           if [[ "$GITHUB_REF" == "ref/heads/dev" ]]; then
