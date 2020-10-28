@@ -103,9 +103,6 @@ jobs:
           else
             echo "GRASPOLOGIC_PRERELEASE=false" >> $GITHUB_ENV
           fi
-      - name: Debug Env Variables
-        run: |
-          env
       - name: Create Github Release
         uses: actions/create-release@v1
         env:
