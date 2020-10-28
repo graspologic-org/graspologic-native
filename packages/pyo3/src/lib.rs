@@ -41,7 +41,10 @@ pub struct HierarchicalCluster {
 #[pyproto]
 impl PyObjectProtocol for HierarchicalCluster {
     fn __repr__(&self) -> PyResult<String> {
-        let parent: String = self.parent_cluster.map(|level| { level.to_string() }).unwrap_or("None".into());
+        let parent: String = self
+            .parent_cluster
+            .map(|level| level.to_string())
+            .unwrap_or("None".into());
         return Ok(format!(
             "HierarchicalCluster(node=\"{}\", cluster=\"{}\", level={}, parent_cluster={}, is_final_cluster={})",
             self.node,

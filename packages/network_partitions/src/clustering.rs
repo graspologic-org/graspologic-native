@@ -3,7 +3,7 @@
 
 use super::errors::CoreError;
 use super::safe_vectors::SafeVectors;
-use crate::network::{LabeledNetwork, CompactNodeId};
+use crate::network::{CompactNodeId, LabeledNetwork};
 use std::collections::HashMap;
 use std::ops::Index;
 
@@ -105,7 +105,8 @@ impl Clustering {
     /// corresponds to the cluster id, and the values in the inner vectors correspond to the node ids.
     pub fn nodes_per_cluster(&self) -> Vec<Vec<CompactNodeId>> {
         let number_nodes_per_cluster: Vec<u64> = self.num_nodes_per_cluster();
-        let mut nodes_per_cluster: Vec<Vec<CompactNodeId>> = Vec::with_capacity(self.next_cluster_id);
+        let mut nodes_per_cluster: Vec<Vec<CompactNodeId>> =
+            Vec::with_capacity(self.next_cluster_id);
         for i in 0..self.next_cluster_id {
             nodes_per_cluster.push(Vec::with_capacity(number_nodes_per_cluster[i] as usize));
         }
