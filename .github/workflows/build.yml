@@ -43,7 +43,7 @@ jobs:
           rm packages/pyo3/Cargo.toml
       - name: Update python environment
         run: |
-          mv -h
+          mv --help
           mv materialized/Cargo.toml packages/pyo3/Cargo.toml
           pip install -U pip setuptools wheel
           pip install maturin
