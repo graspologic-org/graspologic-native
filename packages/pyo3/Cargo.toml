@@ -4,7 +4,8 @@ version = "0.1.0"
 authors = ["dwpryce@microsoft.com"]
 edition = "2018"
 license = "MIT"
-description = "This module exists to provide a python interface to native code for Windows, MacOS, and Linux from Python 3.6 to 3.9. Currently, it provides a  native implementation of the Leiden global partitioning algorithm. It is advised you use the API through graspologic, as pythonic syntactic sugar has been added to make it more ergonomic for use."
+description = "Python native companion module to the graspologic library"
+readme = "../../README.md"
 
 [package.metadata.maturin]
 maintainer = "Dwayne Pryce"
