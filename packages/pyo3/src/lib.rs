@@ -256,10 +256,10 @@ fn modularity(
     return result.map_err(|err| PyErr::from(err));
 }
 
-/// topologic_native currently supports global network partitioning via the Leiden University
+/// graspologic_native currently supports global network partitioning via the Leiden University
 /// algorithm described by https://arxiv.org/abs/1810.08473
 #[pymodule]
-fn topologic_native(
+fn graspologic_native(
     py: Python,
     module: &PyModule,
 ) -> PyResult<()> {
