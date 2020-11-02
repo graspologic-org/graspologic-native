@@ -109,15 +109,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ env.GRASPOLOGIC_VERSION }}
-          release_name: graspologic-native-testbuild-${{ env.GRASPOLOGIC_VERSION }}
+          release_name: graspologic-native-${{ env.GRASPOLOGIC_VERSION }}
           body_path: "checksums.txt"
           prerelease: ${{ env.GRASPOLOGIC_PRERELEASE }}
-#      - name: Install dependencies
-#        run: |
-#          python -m pip install -U pip setuptools wheel twine
-#      - name: Publish with twine
-#        env:
-#          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-#          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-#        run: |
-#          twine upload dist/*
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip setuptools wheel twine
+      - name: Publish with twine
+        env:
+          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        run: |
+          twine upload dist/*
