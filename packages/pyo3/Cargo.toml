@@ -5,7 +5,7 @@ authors = ["dwpryce@microsoft.com"]
 edition = "2018"
 license = "MIT"
 description = "Python native companion module to the graspologic library"
-readme = "../../README.md"
+readme = "README.md"
 
 [package.metadata.maturin]
 maintainer = "Dwayne Pryce"
