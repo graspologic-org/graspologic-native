@@ -1,0 +1,25 @@
+jobs:
+  - template: build.yml
+  - job: inclusion_test
+    dependsOn: python_build
+    displayName: Internal PyPI
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+      - download: current
+        patterns: '**/*.whl'
+        displayName: "Downloading all drops"
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.8'
+        displayName: 'Use Python 3.8'
+      - script: |
+          pip install twine
+        displayName: Install Twine
+      - task: TwineAuthenticate@1
+        inputs:
+          artifactFeed: essex-pypi
+        displayName: Authenticate Twine
+      - script: |
+          twine upload --skip-existing -r essex-pypi --config-file $(PYPIRC_PATH) $(Pipeline.Workspace)/drop*/*.whl --verbose 
+        displayName: Uploading to PyPI

@@ -1,6 +1,6 @@
 jobs:
-- job: snapshot_build
-  displayName: Create Snapshot Build Number
+- job: build_identity
+  displayName: Materialize Python Build Number
   pool:
     vmImage: "ubuntu-latest"
   steps:
@@ -10,42 +10,16 @@ jobs:
     - script: |
         pip install -U pip
         pip install toml
-        python .devops/create_snapshot_version.py packages/pyo3/Cargo.toml "$BUILD_BUILDNUMBER"
-      displayName: "Create Version Number"
+        python .devops/manifest_version.py packages/pyo3/Cargo.toml "$BUILD_SOURCEBRANCHNAME" "$BUILD_BUILDNUMBER"
+      displayName: "Create Python Version Number"
     - publish: packages/pyo3/Cargo.toml
       artifact: cargotoml
-- job: rust_build
-  dependsOn: snapshot_build
-  displayName: Rust Build
-  pool:
-    vmImage: "ubuntu-latest"
-  steps:
-    - task: Rust@1
-      inputs:
-        installNightly: true
-    - script: |
-        cd packages/network_partitions
-        cargo test
-        cd ../packages/cli
-        cargo test
-        cargo build --release
-- job: cred_scan
-  dependsOn: rust_build
-  displayName: Cred Scan
-  pool:
-    vmImage: "windows-latest"
-  steps:
-    - task: CredScan@3
-      displayName: 'Run CredScan'
-      inputs:
-        outputFormat: sarif
-        debugMode: false
 - job: python_build
   displayName: Python Build
-  dependsOn: rust_build
+  dependsOn: build_identity
   strategy:
     matrix:
-      linux_p36: 
+      linux_p36:
         os: "ubuntu-latest"
         python_version: "3.6"
       linux_p37:
@@ -88,26 +62,6 @@ jobs:
         pip install maturin
         cd packages/pyo3
         cp $(Pipeline.Workspace)/cargotoml/Cargo.toml Cargo.toml
-        maturin build --release
+        python $(Build.SourcesDirectory)/.devops/homogenized_maturin_build.py $(python_version)
     - publish: target/wheels
       artifact: drop$(System.JobName)
-- job: Publish
-  dependsOn: python_build
-  pool:
-    vmImage: "ubuntu-latest"
-  steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '3.8'
-    - download: current
-      patterns: '**/*.whl'
-    - script: |
-        pip install -U pip
-        pip install twine
-        twine upload --verbose --repository-url="https://nexus.ess-ex.net/repository/essex-pypi/" $(Pipeline.Workspace)/drop*/*.whl
-      displayName: "Upload BDists"
-      env: 
-        TWINE_USERNAME: $(ESSEXNEXUSUSERNAME)
-        TWINE_PASSWORD: $(ESSEXNEXUSPASSWORD)
-
-  

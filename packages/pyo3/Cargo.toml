@@ -1,17 +1,25 @@
 [package]
-name = "topologic_native"
+name = "graspologic_native"
 version = "0.1.0"
-authors = ["Dwayne Pryce <dwpryce@microsoft.com>"]
+authors = ["dwpryce@microsoft.com"]
 edition = "2018"
 license = "MIT"
-description = ""
+description = "Python native companion module to the graspologic library"
+readme = "README.md"
+
+[package.metadata.maturin]
+maintainer = "Dwayne Pryce"
+maintainer-email = "dwpryce@microsoft.com"
+requires-python = ">=3.6,<=3.9"
+project-url = ["Github, https://github.com/microsoft/graspologic-native", "Graspologic, https://github.com/microsoft/graspologic"]
+classifier = ["Development Status :: 3 - Alpha", "License :: OSI Approved :: MIT License", "Programming Language :: Python :: Implementation :: CPython", "Programming Language :: Python :: 3.6", "Programming Language :: Python :: 3.7", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9", "Topic :: Scientific/Engineering :: Mathematics"]
 
 [lib]
-name = "topologic_native"
+name = "graspologic_native"
 crate-type = ["rlib","cdylib"]
 
 [dependencies]
-pyo3 = "0.8.5"
+pyo3 = "0.11.1"
 rand = "0.7"
 rand_xorshift = "0.2"
 network_partitions = { path = "../network_partitions" }

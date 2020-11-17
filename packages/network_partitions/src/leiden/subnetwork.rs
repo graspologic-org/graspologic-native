@@ -6,7 +6,7 @@ use rand::Rng;
 use super::quality_value_increment::calculate;
 use crate::clustering::Clustering;
 use crate::errors::CoreError;
-use crate::network::Network;
+use crate::network::prelude::*;
 
 pub const DEFAULT_RANDOMNESS: f64 = 1e-2;
 
@@ -42,7 +42,8 @@ impl SubnetworkClusteringGenerator {
 
     pub fn subnetwork_clustering<T>(
         &mut self,
-        subnetwork: &Network,
+        subnetwork: &CompactNetwork,
+        use_modularity: bool,
         adjusted_resolution: f64,
         randomness: f64,
         rng: &mut T,
@@ -59,8 +60,11 @@ impl SubnetworkClusteringGenerator {
         let mut improved: bool = false;
 
         let mut cluster_weights: Vec<f64> = subnetwork.node_weights();
-        let mut external_edge_weight_per_cluster: Vec<f64> =
-            subnetwork.total_edge_weight_per_node();
+        let mut external_edge_weight_per_cluster: Vec<f64> = if use_modularity {
+            subnetwork.node_weights()
+        } else {
+            subnetwork.total_edge_weight_per_node()
+        };
         let total_node_weight: f64 = subnetwork.total_node_weight();
 
         let neighboring_clusters: &mut Vec<usize> = self.neighboring_clusters.as_mut();
@@ -89,19 +93,17 @@ impl SubnetworkClusteringGenerator {
                 cluster_weights[node] = 0_f64;
                 external_edge_weight_per_cluster[node] = 0_f64;
 
-                let (start_neighbor_index, end_neighbor_index) = subnetwork.neighbor_range(node)?;
-                for neighbor_index in start_neighbor_index..end_neighbor_index {
-                    let (neighbor, weight) = subnetwork.edge_at(neighbor_index)?;
-                    let neighbor_cluster: usize = clustering.cluster_at(neighbor)?;
+                for neighbor in subnetwork.neighbors_for(node) {
+                    let neighbor_cluster: usize = clustering.cluster_at(neighbor.id)?;
                     if neighboring_cluster_edge_weights[neighbor_cluster] == 0_f64 {
                         neighboring_clusters.push(neighbor_cluster);
                     }
-                    neighboring_cluster_edge_weights[neighbor_cluster] += weight;
+                    neighboring_cluster_edge_weights[neighbor_cluster] += neighbor.edge_weight;
                 }
 
                 let chosen_cluster: usize = best_cluster_for_node(
                     node,
-                    subnetwork.node_weight_at(node)?,
+                    subnetwork.node(node).weight,
                     &neighboring_clusters,
                     neighboring_cluster_edge_weights,
                     &cluster_weights,
@@ -112,17 +114,16 @@ impl SubnetworkClusteringGenerator {
                     randomness,
                     rng,
                 );
-                cluster_weights[chosen_cluster] += subnetwork.node_weight_at(node)?;
+                cluster_weights[chosen_cluster] += subnetwork.node_weight(node);
 
                 // TODO: Literally none of this makes sense.  Why would we decrement the edge
                 // weight of all nodes in a cluster IF they match, otherwise we increment them?
                 // this just doesn't make sense
-                for neighbor_index in start_neighbor_index..end_neighbor_index {
-                    let (neighbor, edge_weight) = subnetwork.edge_at(neighbor_index)?;
-                    if clustering.cluster_at(neighbor)? == chosen_cluster {
-                        external_edge_weight_per_cluster[chosen_cluster] -= edge_weight;
+                for neighbor in subnetwork.neighbors_for(node) {
+                    if clustering.cluster_at(neighbor.id)? == chosen_cluster {
+                        external_edge_weight_per_cluster[chosen_cluster] -= neighbor.edge_weight;
                     } else {
-                        external_edge_weight_per_cluster[chosen_cluster] += edge_weight;
+                        external_edge_weight_per_cluster[chosen_cluster] += neighbor.edge_weight;
                     }
                 }
 

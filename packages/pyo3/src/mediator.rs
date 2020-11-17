@@ -5,19 +5,20 @@ use std::collections::{HashMap, HashSet};
 
 use network_partitions::clustering::Clustering;
 use network_partitions::errors::CoreError;
-use network_partitions::leiden::leiden as leiden_internal;
+use network_partitions::leiden;
 use network_partitions::log;
-use network_partitions::network::{Network, NetworkBuilder};
+use network_partitions::network::prelude::*;
 use network_partitions::quality;
 use network_partitions::safe_vectors::SafeVectors;
 
+use super::errors::PyLeidenError;
+use super::HierarchicalCluster;
+use crate::errors::InvalidCommunityMappingError;
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
 
-use super::errors::PyLeidenError;
-
 pub fn leiden(
-    edges: Vec<(String, String, f64)>,
+    edges: Vec<Edge>,
     starting_communities: Option<HashMap<String, usize>>,
     resolution: f64,
     randomness: f64,
@@ -26,21 +27,20 @@ pub fn leiden(
     seed: Option<u64>,
 ) -> Result<(bool, f64, HashMap<String, usize>), PyLeidenError> {
     log!(
-        "Building a NetworkBuilder for a Network whose clustering is measured by {}",
+        "Building a LabeledNetwork for quality measured by {}",
         if use_modularity { "modularity" } else { "CPM" }
     );
-    let builder: NetworkBuilder = NetworkBuilder::builder(use_modularity);
     log!("Adding {} edges to network builder", edges.len());
-    let builder: NetworkBuilder = builder.from(edges);
 
-    log!("Loaded List[(str, str, f64)] into network builder");
-    let network: Network = builder.build();
+    let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+    let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
 
-    log!("Network built from NetworkBuilder");
+    log!("Network built from edges");
     let clustering: Option<Clustering> = match starting_communities {
-        Some(starting_communities) => {
-            Some(communities_to_clustering(&network, starting_communities)?)
-        }
+        Some(starting_communities) => Some(communities_to_clustering(
+            &labeled_network,
+            starting_communities,
+        )?),
         None => None,
     };
 
@@ -51,8 +51,10 @@ pub fn leiden(
         None => XorShiftRng::from_entropy(),
     };
 
-    let (improved, clustering) = leiden_internal(
-        &network,
+    let compact_network: &CompactNetwork = labeled_network.compact();
+
+    let (improved, clustering) = leiden::leiden(
+        compact_network,
         clustering,
         Some(iterations),
         Some(resolution),
@@ -62,11 +64,15 @@ pub fn leiden(
     )?;
 
     log!("Completed leiden process");
-    let quality_score: f64 =
-        quality::quality(&network, &clustering, Some(resolution), use_modularity)?;
+    let quality_score: f64 = quality::quality(
+        compact_network,
+        &clustering,
+        Some(resolution),
+        use_modularity,
+    )?;
 
     log!("Calculated quality score");
-    let clustering: HashMap<String, usize> = map_from(&network, &clustering)?;
+    let clustering: HashMap<String, usize> = map_from(&labeled_network, &clustering)?;
 
     log!("Mapped the clustering back to a dictionary: {:?}");
 
@@ -74,61 +80,127 @@ pub fn leiden(
 }
 
 pub fn modularity(
-    edges: Vec<(String, String, f64)>,
+    edges: Vec<Edge>,
     communities: HashMap<String, usize>,
     resolution: f64,
 ) -> Result<f64, PyLeidenError> {
-    let builder: NetworkBuilder = NetworkBuilder::for_modularity();
-    let network: Network = builder.from(edges).build();
-    let clustering: Clustering = communities_to_clustering(&network, communities)?;
-    let quality: f64 = quality::quality(&network, &clustering, Some(resolution), true)?;
+    let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+    let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
+    let clustering: Clustering = communities_to_clustering(&labeled_network, communities)?;
+    let quality: f64 = quality::quality(
+        labeled_network.compact(),
+        &clustering,
+        Some(resolution),
+        true,
+    )?;
     return Ok(quality);
 }
 
+pub fn hierarchical_leiden(
+    edges: Vec<Edge>,
+    starting_communities: Option<HashMap<String, usize>>,
+    resolution: f64,
+    randomness: f64,
+    iterations: usize,
+    use_modularity: bool,
+    max_cluster_size: u32,
+    seed: Option<u64>,
+) -> Result<Vec<HierarchicalCluster>, PyLeidenError> {
+    log!(
+        "Building a LabeledNetwork for quality measured by {}",
+        if use_modularity { "modularity" } else { "CPM" }
+    );
+    log!("Adding {} edges to network builder", edges.len());
+
+    let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+    let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
+
+    log!("Network built from edges");
+    let clustering: Option<Clustering> = match starting_communities {
+        Some(starting_communities) => Some(communities_to_clustering(
+            &labeled_network,
+            starting_communities,
+        )?),
+        None => None,
+    };
+
+    log!("Mapped any starting communities from a dictionary into a clustering");
+
+    let mut rng: XorShiftRng = match seed {
+        Some(seed) => XorShiftRng::seed_from_u64(seed),
+        None => XorShiftRng::from_entropy(),
+    };
+
+    log!("Running hierarchical leiden over a network of {} nodes, {} edges, with a max_cluster_size of {}", labeled_network.num_nodes(), labeled_network.num_edges(), max_cluster_size);
+    let compact_network: &CompactNetwork = labeled_network.compact();
+    let internal_clusterings: Vec<leiden::HierarchicalCluster> = leiden::hierarchical_leiden(
+        compact_network,
+        clustering,
+        Some(iterations),
+        Some(resolution),
+        Some(randomness),
+        &mut rng,
+        use_modularity,
+        max_cluster_size,
+    )?;
+
+    log!("Completed hierarchical leiden process");
+
+    let mut hierarchical_clustering: Vec<HierarchicalCluster> =
+        Vec::with_capacity(internal_clusterings.len());
+    for internal in internal_clusterings {
+        let node = labeled_network.label_for(internal.node);
+        hierarchical_clustering.push(HierarchicalCluster {
+            node: node.into(),
+            cluster: internal.cluster,
+            level: internal.level,
+            parent_cluster: internal.parent_cluster,
+            is_final_cluster: internal.is_final_cluster,
+        });
+    }
+
+    return Ok(hierarchical_clustering);
+}
+
 fn map_from(
-    network: &Network,
+    network: &LabeledNetwork<String>,
     clustering: &Clustering,
 ) -> Result<HashMap<String, usize>, CoreError> {
     let mut map: HashMap<String, usize> = HashMap::with_capacity(clustering.num_nodes());
-    for node_index in 0..clustering.num_nodes() {
-        let cluster: usize = clustering.cluster_at(node_index)?;
-        let node_name = network.node_name(node_index)?;
-        map.insert(node_name, cluster);
+    for item in clustering {
+        let node_name = network.label_for(item.node_id);
+        map.insert(node_name.into(), item.cluster);
     }
     return Ok(map);
 }
 
 fn communities_to_clustering(
-    network: &Network,
+    network: &LabeledNetwork<String>,
     communities: HashMap<String, usize>,
 ) -> Result<Clustering, PyLeidenError> {
     // if node not found in internal network, bounce
     // if max(communities) > len(set(communities)), collapse result
     // if all nodes are mapped, cool
     // if not all nodes are mapped, generate integers for each new value
-    let mut max_community: usize = 0;
+
+    let mut clustering: Clustering = Clustering::as_self_clusters(network.num_nodes());
+
     let mut all_communities: HashSet<usize> = HashSet::new();
-    let mut node_to_community: Vec<usize> = vec![0; communities.len()];
+
     for (node, community) in communities {
         all_communities.insert(community);
-        max_community = max_community.max(community);
-        let mapped_node: usize = network
-            .index_for_name(&node)
+        let mapped_node: CompactNodeId = network
+            .compact_id_for(node)
             .ok_or(PyLeidenError::InvalidCommunityMappingError)?;
-        node_to_community[mapped_node] = community;
-    }
-    // let's validate that all the nodes in the internal network have an entry in the
-    // starting communities
-    for node_id in 0..network.num_nodes() {
-        node_to_community
-            .get_or_err(node_id, CoreError::ClusterIndexingError)
+        clustering
+            .update_cluster_at(mapped_node, community)
             .map_err(|_| PyLeidenError::InvalidCommunityMappingError)?;
     }
 
-    let mut clustering: Clustering = Clustering::as_defined(node_to_community, max_community + 1);
     if clustering.next_cluster_id() != all_communities.len() {
         // we have some gaps, compress
         clustering.remove_empty_clusters();
     }
+
     return Ok(clustering);
 }
