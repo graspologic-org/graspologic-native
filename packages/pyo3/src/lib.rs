@@ -136,7 +136,7 @@ fn leiden(
                 iterations,
                 use_modularity,
                 seed,
-                repetitions
+                repetitions,
             )
         });
     return result.map_err(|err| PyErr::from(err));
