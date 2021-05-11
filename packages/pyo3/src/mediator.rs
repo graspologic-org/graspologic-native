@@ -25,7 +25,8 @@ pub fn leiden(
     iterations: usize,
     use_modularity: bool,
     seed: Option<u64>,
-) -> Result<(bool, f64, HashMap<String, usize>), PyLeidenError> {
+    repetitions: u64,
+) -> Result<(f64, HashMap<String, usize>), PyLeidenError> {
     log!(
         "Building a LabeledNetwork for quality measured by {}",
         if use_modularity { "modularity" } else { "CPM" }
@@ -36,7 +37,7 @@ pub fn leiden(
     let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
 
     log!("Network built from edges");
-    let clustering: Option<Clustering> = match starting_communities {
+    let initial_clustering: Option<Clustering> = match starting_communities {
         Some(starting_communities) => Some(communities_to_clustering(
             &labeled_network,
             starting_communities,
@@ -53,30 +54,39 @@ pub fn leiden(
 
     let compact_network: &CompactNetwork = labeled_network.compact();
 
-    let (improved, clustering) = leiden::leiden(
-        compact_network,
-        clustering,
-        Some(iterations),
-        Some(resolution),
-        Some(randomness),
-        &mut rng,
-        use_modularity,
-    )?;
+    let mut best_quality_score: f64 = 0.0;
+    let mut best_clustering: Option<Clustering> = None;
 
-    log!("Completed leiden process");
-    let quality_score: f64 = quality::quality(
-        compact_network,
-        &clustering,
-        Some(resolution),
-        use_modularity,
-    )?;
+    for _i in 0..repetitions {
+        let (_improved, clustering) = leiden::leiden(
+            compact_network,
+            initial_clustering.clone(),
+            Some(iterations),
+            Some(resolution),
+            Some(randomness),
+            &mut rng,
+            use_modularity,
+        )?;
+
+        log!("Completed leiden process");
+        let quality_score: f64 = quality::quality(
+            compact_network,
+            &clustering,
+            Some(resolution),
+            use_modularity,
+        )?;
+        if quality_score > best_quality_score {
+            best_quality_score = quality_score;
+            best_clustering = Some(clustering);
+        }
+    }
 
     log!("Calculated quality score");
-    let clustering: HashMap<String, usize> = map_from(&labeled_network, &clustering)?;
+    let clustering: HashMap<String, usize> = map_from(&labeled_network, &best_clustering.unwrap())?;
 
     log!("Mapped the clustering back to a dictionary: {:?}");
 
-    return Ok((improved, quality_score, clustering));
+    return Ok((best_quality_score, clustering));
 }
 
 pub fn modularity(
