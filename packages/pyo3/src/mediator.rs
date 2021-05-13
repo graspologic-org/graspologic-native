@@ -54,7 +54,7 @@ pub fn leiden(
 
     let compact_network: &CompactNetwork = labeled_network.compact();
 
-    let mut best_quality_score: f64 = 0.0;
+    let mut best_quality_score: f64 = f64::MIN;
     let mut best_clustering: Option<Clustering> = None;
 
     for _i in 0..trials {
