@@ -25,7 +25,7 @@ pub fn leiden(
     iterations: usize,
     use_modularity: bool,
     seed: Option<u64>,
-    repetitions: u64,
+    trials: u64,
 ) -> Result<(f64, HashMap<String, usize>), PyLeidenError> {
     log!(
         "Building a LabeledNetwork for quality measured by {}",
@@ -57,7 +57,7 @@ pub fn leiden(
     let mut best_quality_score: f64 = 0.0;
     let mut best_clustering: Option<Clustering> = None;
 
-    for _i in 0..repetitions {
+    for _i in 0..trials {
         let (_improved, clustering) = leiden::leiden(
             compact_network,
             initial_clustering.clone(),
