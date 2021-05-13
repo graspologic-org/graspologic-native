@@ -1,6 +1,6 @@
 [package]
 name = "graspologic_native"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["dwpryce@microsoft.com"]
 edition = "2018"
 license = "MIT"
@@ -11,7 +11,7 @@ readme = "README.md"
 maintainer = "Dwayne Pryce"
 maintainer-email = "dwpryce@microsoft.com"
 requires-python = ">=3.6,<=3.9"
-project-url = ["Github, https://github.com/microsoft/graspologic-native", "Graspologic, https://github.com/microsoft/graspologic"]
+project-url = {"Github" = "https://github.com/microsoft/graspologic-native", "Graspologic"="https://github.com/microsoft/graspologic"}
 classifier = ["Development Status :: 3 - Alpha", "License :: OSI Approved :: MIT License", "Programming Language :: Python :: Implementation :: CPython", "Programming Language :: Python :: 3.6", "Programming Language :: Python :: 3.7", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9", "Topic :: Scientific/Engineering :: Mathematics"]
 
 [lib]
