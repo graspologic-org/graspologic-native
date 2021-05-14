@@ -63,5 +63,7 @@ jobs:
         cd packages/pyo3
         cp $(Pipeline.Workspace)/cargotoml/Cargo.toml Cargo.toml
         python $(Build.SourcesDirectory)/.devops/homogenized_maturin_build.py $(python_version)
+        pip install ../target/wheels/*.whl
+        python -m unittest
     - publish: target/wheels
       artifact: drop$(System.JobName)

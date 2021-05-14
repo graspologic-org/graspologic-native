@@ -65,9 +65,10 @@ impl PyObjectProtocol for HierarchicalCluster {
     resolution = "1.0",
     randomness = "0.001",
     iterations = "1",
-    use_modularity = "true"
+    use_modularity = "true",
+    trials = "1"
 )]
-#[text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, seed)"]
+#[text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, seed, trials)"]
 /// Leiden is a global network partitioning algorithm. Given a list of edges and a maximization
 /// function, it will iterate through the network attempting to find an optimal partitioning of
 /// the entire network.
@@ -93,7 +94,11 @@ impl PyObjectProtocol for HierarchicalCluster {
 /// :param Optional[int] seed: Default is `None`. If provided, the seed will be used in creating the
 ///     Pseudo-Random Number Generator at a known state, making runs over the same network and
 ///     starting_communities with the same parameters end with the same results.
-/// :return: A dictionary of node to community ids. The community ids will start at 0 and increment.
+/// :param int trials: Default is `1`. Leiden will be run repeatedly, keeping the best clustering
+///     as per the maximization function. At the end of `repetitions` it will return the best
+///     clustering.
+/// :return: The modularity of the best community partitioning and a dictionary of node to community
+///     ids. The community ids will start at 0 and increment.
 /// :rtype: Dict[str, int]
 /// :raises ClusterIndexingError:
 /// :raises EmptyNetworkError:
@@ -112,7 +117,8 @@ fn leiden(
     iterations: usize,
     use_modularity: bool,
     seed: Option<u64>,
-) -> PyResult<(bool, f64, HashMap<String, usize>)> {
+    trials: u64,
+) -> PyResult<(f64, HashMap<String, usize>)> {
     #[cfg(feature = "logging")]
     use std::time::Instant;
     #[cfg(feature = "logging")]
@@ -120,7 +126,7 @@ fn leiden(
 
     log!("pyo3 converted {} edges from Python's representation to a Vec<(String, String, f64)> representation at {:?}", edges.len(), now);
 
-    let result: Result<(bool, f64, HashMap<String, usize>), PyLeidenError> =
+    let result: Result<(f64, HashMap<String, usize>), PyLeidenError> =
         py.allow_threads(move || {
             mediator::leiden(
                 edges,
@@ -130,6 +136,7 @@ fn leiden(
                 iterations,
                 use_modularity,
                 seed,
+                trials,
             )
         });
     return result.map_err(|err| PyErr::from(err));
