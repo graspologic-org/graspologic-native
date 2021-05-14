@@ -68,7 +68,7 @@ jobs:
       - name: Python Unittests
         run: |
           cd packages/pyo3
-          pip install ../target/wheels/*.whl
+          pip install ../../target/wheels/*.whl
           python -m unittest
       - uses: actions/upload-artifact@v2
         with:
