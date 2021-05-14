@@ -70,6 +70,7 @@ jobs:
           cd packages/pyo3
           pip install ../../target/wheels/*.whl
           python -m unittest
+        shell: bash
       - uses: actions/upload-artifact@v2
         with:
           name: wheels
