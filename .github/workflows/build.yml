@@ -57,7 +57,7 @@ jobs:
         run: |
           pip install -U pip setuptools wheel
           pip install maturin
-      - name: Test
+      - name: Rust Unittests
         run: |
           rustup default nightly
           cargo test --manifest-path packages/network_partitions/Cargo.toml
@@ -65,6 +65,12 @@ jobs:
         run: |
           cd packages/pyo3
           python ${{github.workspace}}/.github/build/homogenized_maturin_build.py ${{matrix.python_version}}
+      - name: Python Unittests
+        run: |
+          cd packages/pyo3
+          pip install ../../target/wheels/*.whl
+          python -m unittest
+        shell: bash
       - uses: actions/upload-artifact@v2
         with:
           name: wheels

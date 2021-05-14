@@ -10,7 +10,7 @@ readme = "README.md"
 [package.metadata.maturin]
 maintainer = "Dwayne Pryce"
 maintainer-email = "dwpryce@microsoft.com"
-requires-python = ">=3.6,<=3.9"
+requires-python = ">=3.6,<3.10"
 project-url = {"Github" = "https://github.com/microsoft/graspologic-native", "Graspologic"="https://github.com/microsoft/graspologic"}
 classifier = ["Development Status :: 3 - Alpha", "License :: OSI Approved :: MIT License", "Programming Language :: Python :: Implementation :: CPython", "Programming Language :: Python :: 3.6", "Programming Language :: Python :: 3.7", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9", "Topic :: Scientific/Engineering :: Mathematics"]
 
