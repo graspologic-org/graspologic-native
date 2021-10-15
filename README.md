@@ -16,6 +16,26 @@ and a package using [pyo3](https://github.com/pyo3/pyo3) will expose the functio
 ## Published Versions
 We currently build for x86_64 platforms only, Windows, macOS, and Ubuntu, for python versions 3.6, 3.7, 3.8, and 3.9.
 
+## Building
+If for any reason, the published wheels do not match your architecture or if you have a particularly old version of glibc that isn't sufficiently accounted for in our current build matrix, or you just want to build it yourself, the following build instructions should help.
+
+Note that these instructions are for Linux specifically, though they also should work for MacOS. Unfortunately, the instructions for Windows are a bit more convoluted and I will comment the sections that deviate between the three, as I'm aware of issues.
+
+Before running these instructions, ensure you have installed Rust on your system and you have the Python development headers (e.g. `python3.8-dev`) for your system.
+
+```bash
+rustup default nightly
+git clone git@github.com:microsoft/graspologic-native.git
+cd graspologic-native
+python3.8 -m venv venv
+pip install -U pip setuptools wheel
+pip install pyo3 maturin
+cd packages/pyo3
+maturin build --release -i python3.8  # this is where things break on windows.  instead of `python3.8` here, you will need the full path to the correct python.exe on your windows machine, something like `-i "C:\python38\bin\python.exe"`
+```
+
+Presuming a successful build, your output wheel should be in: `graspologic-native/target/wheels/`
+
 ## Contributing
 
 This project welcomes contributions and suggestions. Most contributions require you to
