@@ -203,8 +203,8 @@ fn communities_to_clustering(
             let end: usize = start + network.num_nodes();
             cluster_mapping.extend(start..end);
             Clustering::as_defined(cluster_mapping, end)
-        },
-        None => Clustering.as_self_clusters(network.num_nodes())
+        }
+        None => Clustering.as_self_clusters(network.num_nodes()),
     };
 
     let mut all_communities: HashSet<usize> = HashSet::new();
