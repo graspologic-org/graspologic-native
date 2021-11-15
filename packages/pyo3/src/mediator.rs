@@ -209,7 +209,9 @@ fn communities_to_clustering(
         let mapping: Option<CompactNodeId> = network.compact_id_for(node);
         if mapping.is_some() {
             let compact_node_id: CompactNodeId = mapping.unwrap();
-            clustering.update_cluster_at(compact_node_id, community).map_err(|_| PyLeidenError::InvalidCommunityMappingError)?;
+            clustering
+                .update_cluster_at(compact_node_id, community)
+                .map_err(|_| PyLeidenError::ClusterIndexingError)?;
         }
     }
 
