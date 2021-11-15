@@ -202,7 +202,7 @@ fn communities_to_clustering(
             cluster_mapping.extend(start..end);
             Clustering::as_defined(cluster_mapping, end)
         }
-        None => Clustering.as_self_clusters(network.num_nodes()),
+        None => Clustering::as_self_clusters(network.num_nodes()),
     };
 
     for (node, community) in communities {
