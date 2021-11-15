@@ -188,10 +188,8 @@ fn communities_to_clustering(
     network: &LabeledNetwork<String>,
     communities: HashMap<String, usize>,
 ) -> Result<Clustering, PyLeidenError> {
-    // if node not found in internal network, bounce
-    // if max(communities) > len(set(communities)), collapse result
-    // if all nodes are mapped, cool
-    // if not all nodes are mapped, generate integers for each new value
+    // best effort for using a provided community mapping and keeping generated singleton ids
+    // otherwise
 
     let mut clustering: Clustering = match communities.values().max() {
         Some(max_community_id) => {
@@ -207,16 +205,12 @@ fn communities_to_clustering(
         None => Clustering.as_self_clusters(network.num_nodes()),
     };
 
-    let mut all_communities: HashSet<usize> = HashSet::new();
-
     for (node, community) in communities {
-        all_communities.insert(community);
-        let mapped_node: CompactNodeId = network
-            .compact_id_for(node)
-            .ok_or(PyLeidenError::InvalidCommunityMappingError)?;
-        clustering
-            .update_cluster_at(mapped_node, community)
-            .map_err(|_| PyLeidenError::InvalidCommunityMappingError)?;
+        let mapping: Option<CompactNodeId> = network.compact_id_for(node);
+        if mapping.is_some() {
+            let compact_node_id: CompactNodeId = mapping.unwrap();
+            clustering.update_cluster_at(compact_node_id, community).map_err(|_| PyLeidenError::InvalidCommunityMappingError)?;
+        }
     }
 
     // we can't easily know if there are empty clusters, so we'll just presume there are
