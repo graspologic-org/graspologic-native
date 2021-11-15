@@ -102,9 +102,6 @@ impl PyObjectProtocol for HierarchicalCluster {
 /// :rtype: Dict[str, int]
 /// :raises ClusterIndexingError:
 /// :raises EmptyNetworkError:
-/// :raises InvalidCommunityMappingError: The starting communities dictionary either did not include
-///     a community for each node in the edge list or the edge list did not contain a node present
-///     in the starting community mapping.
 /// :raises InternalNetworkIndexingError: An internal algorithm error. Please report with reproduction steps.
 /// :raises ParameterRangeError: One of the parameters provided did not meet the requirements in the documentation.
 /// :raises UnsafeInducementError: An internal algorithm error. Please report with reproduction steps.
@@ -197,9 +194,6 @@ fn leiden(
 /// :rtype: List[HierarchicalCluster]
 /// :raises ClusterIndexingError:
 /// :raises EmptyNetworkError:
-/// :raises InvalidCommunityMappingError: The starting communities dictionary either did not include
-///     a community for each node in the edge list or the edge list did not contain a node present
-///     in the starting community mapping.
 /// :raises InternalNetworkIndexingError: An internal algorithm error. Please report with reproduction steps.
 /// :raises ParameterRangeError: One of the parameters provided did not meet the requirements in the documentation.
 /// :raises UnsafeInducementError: An internal algorithm error. Please report with reproduction steps.
