@@ -193,7 +193,19 @@ fn communities_to_clustering(
     // if all nodes are mapped, cool
     // if not all nodes are mapped, generate integers for each new value
 
-    let mut clustering: Clustering = Clustering::as_self_clusters(network.num_nodes());
+    let mut clustering: Clustering = match communities.values().max() {
+        Some(max_community_id) => {
+            // if we have values, we have the max community id, which means we'll actually create
+            // a cluster mapping where every node gets a singleton cluster starting after the actual
+            // last max cluster.
+            let mut cluster_mapping: Vec<usize> = Vec::with_capacity(network.num_nodes());
+            let start: usize = max_community_id + 1;
+            let end: usize = start + network.num_nodes();
+            cluster_mapping.extend(start..end);
+            Clustering::as_defined(cluster_mapping, end)
+        },
+        None => Clustering.as_self_clusters(network.num_nodes())
+    };
 
     let mut all_communities: HashSet<usize> = HashSet::new();
 
@@ -207,10 +219,9 @@ fn communities_to_clustering(
             .map_err(|_| PyLeidenError::InvalidCommunityMappingError)?;
     }
 
-    if clustering.next_cluster_id() != all_communities.len() {
-        // we have some gaps, compress
-        clustering.remove_empty_clusters();
-    }
+    // we can't easily know if there are empty clusters, so we'll just presume there are
+    // and compress any gaps
+    clustering.remove_empty_clusters();
 
     return Ok(clustering);
 }
