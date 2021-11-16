@@ -177,7 +177,10 @@ where
                 );
                 println!("We are subnetwork/partition {:?}", item.id);
                 // this is a bug, and we should panic
-                panic!("No node network, which shouldn't have happened");
+                panic!(
+                    "No node network, which shouldn't have happened, {:?}\n{:?}",
+                    &num_nodes_per_cluster, &nodes_by_cluster[item.id]
+                );
             } else {
                 let subnetwork_clustering: Clustering = subnetwork_clusterer
                     .subnetwork_clustering(
