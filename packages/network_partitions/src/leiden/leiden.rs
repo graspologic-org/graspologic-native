@@ -138,7 +138,7 @@ where
         // back into the primary clustering before returning
         let nodes_by_cluster: Vec<Vec<CompactNodeId>> = clustering.nodes_per_cluster();
         let subnetworks_iterator = network.subnetworks_iter(clustering, &nodes_by_cluster, None);
-        let num_nodes_per_cluster: Vec<u64> = clustering.num_nodes_per_cluster();
+        let num_nodes_per_cluster: Vec<u64> = nodes_by_cluster;
 
         let num_subnetworks: usize = clustering.next_cluster_id();
 
@@ -165,6 +165,17 @@ where
                 clustering.update_cluster_at(*singleton_node, clustering.next_cluster_id())?;
                 num_nodes_per_cluster_induced_network.push(1);
             } else if item.subnetwork.num_nodes() == 0 {
+                println!("We're about to panic. This should never happen. We're going to divulge a bit of state information now.");
+                println!("Current clustering object: {:?}", &clustering);
+                println!(
+                    "Alleged number of nodes per cluster: {:?}",
+                    &num_nodes_per_cluster
+                );
+                println!(
+                    "Alleged nodess in this cluster: {:?}",
+                    &nodes_by_cluster[item.id]
+                );
+                println!("We are subnetwork/partition {:?}", item.id);
                 // this is a bug, and we should panic
                 panic!("No node network, which shouldn't have happened");
             } else {
