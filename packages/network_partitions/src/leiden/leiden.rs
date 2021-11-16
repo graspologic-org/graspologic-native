@@ -1,11 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
+use std::collections::{HashMap, HashSet};
 use std::iter;
 
 use rand::Rng;
 
-use crate::clustering::Clustering;
+use crate::clustering::{ClusterItem, Clustering};
 use crate::errors::CoreError;
 use crate::log;
 use crate::network::prelude::*;
@@ -81,6 +82,13 @@ where
 
     let mut clustering: Clustering =
         clustering.unwrap_or(Clustering::as_self_clusters(network.num_nodes().clone()));
+
+    guarantee_clustering_sanity(network, &mut clustering)?;
+
+    // verify initial clustering provided is in a sane state for leiden to operate
+    // any node in a cluster must either be a singleton in that cluster or be connected to at least
+    // one other node in that cluster
+
     let mut improved: bool = false;
 
     log!(
@@ -165,22 +173,8 @@ where
                 clustering.update_cluster_at(*singleton_node, clustering.next_cluster_id())?;
                 num_nodes_per_cluster_induced_network.push(1);
             } else if item.subnetwork.num_nodes() == 0 {
-                println!("We're about to panic. This should never happen. We're going to divulge a bit of state information now.");
-                println!("Current clustering object: {:?}", &clustering);
-                println!(
-                    "Alleged number of nodes per cluster: {:?}",
-                    &num_nodes_per_cluster
-                );
-                println!(
-                    "Alleged nodess in this cluster: {:?}",
-                    &nodes_by_cluster[item.id]
-                );
-                println!("We are subnetwork/partition {:?}", item.id);
                 // this is a bug, and we should panic
-                panic!(
-                    "No node network, which shouldn't have happened, {:?}\n{:?}",
-                    &num_nodes_per_cluster, &nodes_by_cluster[item.id]
-                );
+                panic!("No node network, which shouldn't have happened");
             } else {
                 let subnetwork_clustering: Clustering = subnetwork_clusterer
                     .subnetwork_clustering(
@@ -242,6 +236,42 @@ fn initial_clustering_for_induced(
         None => 0,
     };
     return Clustering::as_defined(clusters_induced_network, next_cluster_id);
+}
+
+fn guarantee_clustering_sanity(
+    network: &CompactNetwork,
+    clustering: &mut Clustering,
+) -> Result<(), CoreError> {
+    let mut node_neighbors: HashMap<CompactNodeId, HashSet<CompactNodeId>> = HashMap::new();
+    for CompactNodeItem { id: node, .. } in network.into_iter() {
+        let mut neighbors: HashSet<CompactNodeId> = HashSet::new();
+        for neighbor in network.neighbors_for(node) {
+            neighbors.insert(neighbor.id);
+        }
+        node_neighbors.insert(node, neighbors);
+    }
+    let mut cluster_membership: HashMap<ClusterId, HashSet<CompactNodeId>> = HashMap::new();
+    for ClusterItem { node_id, cluster } in clustering.into_iter() {
+        let cluster_members: &mut HashSet<CompactNodeId> =
+            cluster_membership.entry(cluster).or_insert(HashSet::new());
+        cluster_members.insert(node_id);
+    }
+
+    for (_cluster, cluster_members) in &cluster_membership {
+        if cluster_members.len() > 1 {
+            // we are only trying to move non-singletons if they don't have a possible connection
+            for cluster_member in cluster_members {
+                let neighbors = node_neighbors.get(cluster_member).unwrap();
+                if neighbors.is_disjoint(cluster_members) {
+                    // we have no reason to be in this partition, because we have no links to anyone
+                    // else in it. we should make our own partition, with ___ and ___.
+                    let new_cluster: ClusterId = clustering.next_cluster_id();
+                    clustering.update_cluster_at(*cluster_member, new_cluster)?;
+                }
+            }
+        }
+    }
+    return Ok(());
 }
 
 #[cfg(test)]
