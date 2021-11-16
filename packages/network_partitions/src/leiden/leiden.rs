@@ -327,17 +327,25 @@ mod tests {
         // node 'a' and node 'f' do not share an edge
         let a_compact = labeled_network.compact_id_for("a".into()).unwrap();
         let h_compact = labeled_network.compact_id_for("h".into()).unwrap();
-        clustering.update_cluster_at(a_compact, clustering.next_cluster_id()).expect("Updating this known cluster for a should work");
-        clustering.update_cluster_at(h_compact, clustering[a_compact]).expect("Updating this known cluster for h should work");
+        clustering
+            .update_cluster_at(a_compact, clustering.next_cluster_id())
+            .expect("Updating this known cluster for a should work");
+        clustering
+            .update_cluster_at(h_compact, clustering[a_compact])
+            .expect("Updating this known cluster for h should work");
         clustering.remove_empty_clusters();
         assert_eq!(clustering[a_compact], clustering[h_compact]);
-        guarantee_clustering_sanity(&compact_network, &mut clustering).expect("guarantee clustering sanity should not throw an error");
+        guarantee_clustering_sanity(&compact_network, &mut clustering)
+            .expect("guarantee clustering sanity should not throw an error");
         assert_ne!(clustering[a_compact], clustering[h_compact]);
         let isolate_clusters: Vec<ClusterId> = vec![clustering[a_compact], clustering[h_compact]];
         let mut isolates: HashSet<ClusterId> = HashSet::new();
         isolates.extend(isolate_clusters);
-        clustering.into_iter().filter(|item| {item.node_id != a_compact && item.node_id != h_compact}).for_each(|item|{
-            assert!(!isolates.contains(&item.cluster));
-        })
+        clustering
+            .into_iter()
+            .filter(|item| item.node_id != a_compact && item.node_id != h_compact)
+            .for_each(|item| {
+                assert!(!isolates.contains(&item.cluster));
+            })
     }
 }
