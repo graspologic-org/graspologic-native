@@ -150,7 +150,6 @@ where
         let mut subnetwork_clusterer =
             SubnetworkClusteringGenerator::with_capacity(max_subnetwork_size as usize);
 
-
         for item in subnetworks_iterator {
             progress_meter!("{}% complete", item.id, num_subnetworks);
             if num_nodes_per_cluster[item.id] == 1 && item.subnetwork.num_nodes() == 0 {
@@ -168,8 +167,14 @@ where
             } else if item.subnetwork.num_nodes() == 0 {
                 println!("We're about to panic. This should never happen. We're going to divulge a bit of state information now.");
                 println!("Current clustering object: {:?}", &clustering);
-                println!("Alleged number of nodes per cluster: {:?}", &num_nodes_per_cluster);
-                println!("Alleged nodess in this cluster: {:?}", &nodes_by_cluster[item.id]);
+                println!(
+                    "Alleged number of nodes per cluster: {:?}",
+                    &num_nodes_per_cluster
+                );
+                println!(
+                    "Alleged nodess in this cluster: {:?}",
+                    &nodes_by_cluster[item.id]
+                );
                 println!("We are subnetwork/partition {:?}", item.id);
                 // this is a bug, and we should panic
                 panic!("No node network, which shouldn't have happened");
