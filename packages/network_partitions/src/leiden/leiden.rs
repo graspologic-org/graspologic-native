@@ -138,7 +138,7 @@ where
         // back into the primary clustering before returning
         let nodes_by_cluster: Vec<Vec<CompactNodeId>> = clustering.nodes_per_cluster();
         let subnetworks_iterator = network.subnetworks_iter(clustering, &nodes_by_cluster, None);
-        let num_nodes_per_cluster: Vec<u64> = nodes_by_cluster;
+        let num_nodes_per_cluster: Vec<u64> = clustering.num_nodes_per_cluster();
 
         let num_subnetworks: usize = clustering.next_cluster_id();
 
