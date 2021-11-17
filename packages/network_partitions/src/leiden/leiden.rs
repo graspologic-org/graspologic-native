@@ -324,7 +324,7 @@ mod tests {
         let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
         let compact_network: &CompactNetwork = labeled_network.compact();
         let mut clustering: Clustering = Clustering::as_self_clusters(compact_network.num_nodes());
-        // node 'a' and node 'f' do not share an edge
+        // node 'a' and node 'h' do not share an edge
         let a_compact = labeled_network.compact_id_for("a".into()).unwrap();
         let h_compact = labeled_network.compact_id_for("h".into()).unwrap();
         clustering
