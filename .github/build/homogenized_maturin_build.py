@@ -28,10 +28,6 @@ def detect(
 ) -> str:
     search_sequence1 = f" - CPython {python_major_minor} at "
     search_sequence2 = f" - CPython {python_major_minor}m at "
-    print("Debug information:")
-    print("---------------")
-    print(maturin_output)
-    print("---------------")
     lines = maturin_output.split("\n")
     matches = []
     for line in lines:
@@ -55,7 +51,7 @@ if __name__ == "__main__":
         exit(-1)
     interpreter = detect(sys.argv[1], execute())
     results = subprocess.run(
-        ["maturin", "build", "--release", "-i", interpreter],
+        ["maturin", "build", "--release", "-i", interpreter, "--compatibility", "manylinux2014"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE
     )
