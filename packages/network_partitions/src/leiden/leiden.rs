@@ -1,11 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
+use std::collections::{HashMap, HashSet};
 use std::iter;
 
 use rand::Rng;
 
-use crate::clustering::Clustering;
+use crate::clustering::{ClusterItem, Clustering};
 use crate::errors::CoreError;
 use crate::log;
 use crate::network::prelude::*;
@@ -81,6 +82,9 @@ where
 
     let mut clustering: Clustering =
         clustering.unwrap_or(Clustering::as_self_clusters(network.num_nodes().clone()));
+
+    guarantee_clustering_sanity(network, &mut clustering)?;
+
     let mut improved: bool = false;
 
     log!(
@@ -230,9 +234,74 @@ fn initial_clustering_for_induced(
     return Clustering::as_defined(clusters_induced_network, next_cluster_id);
 }
 
+fn guarantee_clustering_sanity(
+    network: &CompactNetwork,
+    clustering: &mut Clustering,
+) -> Result<(), CoreError> {
+    // verify initial clustering provided is in a sane state for leiden to operate
+    // any node in a cluster must either be a singleton in that cluster or be connected to at least
+    // one other node in that cluster
+    let mut node_neighbors: HashMap<CompactNodeId, HashSet<CompactNodeId>> = HashMap::new();
+    for CompactNodeItem { id: node, .. } in network.into_iter() {
+        let mut neighbors: HashSet<CompactNodeId> = HashSet::new();
+        for neighbor in network.neighbors_for(node) {
+            neighbors.insert(neighbor.id);
+        }
+        node_neighbors.insert(node, neighbors);
+    }
+    let mut cluster_membership: HashMap<ClusterId, HashSet<CompactNodeId>> = HashMap::new();
+    for ClusterItem { node_id, cluster } in clustering.into_iter() {
+        let cluster_members: &mut HashSet<CompactNodeId> =
+            cluster_membership.entry(cluster).or_insert(HashSet::new());
+        cluster_members.insert(node_id);
+    }
+
+    for (_cluster, cluster_members) in &cluster_membership {
+        if cluster_members.len() > 1 {
+            // we are only trying to move non-singletons if they don't have a possible connection
+            for cluster_member in cluster_members {
+                let neighbors = node_neighbors.get(cluster_member).unwrap();
+                if neighbors.is_disjoint(cluster_members) {
+                    // we have no reason to be in this partition, because we have no links to anyone
+                    // else in it. we should make our own partition, with ___ and ___.
+                    let new_cluster: ClusterId = clustering.next_cluster_id();
+                    clustering.update_cluster_at(*cluster_member, new_cluster)?;
+                }
+            }
+        }
+    }
+    return Ok(());
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::{LabeledNetwork, LabeledNetworkBuilder};
+
+    // todo: this is common to LabeledNetwork and here, and probably should just be written in one place?
+    fn edge_list() -> Vec<Edge> {
+        let edges: Vec<Edge> = vec![
+            ("a".into(), "b".into(), 2.0),
+            ("a".into(), "d".into(), 1.0),
+            ("a".into(), "e".into(), 1.0),
+            ("b".into(), "a".into(), 2.0),
+            ("b".into(), "c".into(), 6.0),
+            ("b".into(), "e".into(), 1.0),
+            ("b".into(), "f".into(), 4.0),
+            ("b".into(), "g".into(), 3.0),
+            ("c".into(), "b".into(), 6.0),
+            ("c".into(), "g".into(), 3.0),
+            ("d".into(), "a".into(), 1.0),
+            ("d".into(), "h".into(), 11.0),
+            ("e".into(), "a".into(), 1.0),
+            ("e".into(), "b".into(), 1.0),
+            ("f".into(), "b".into(), 4.0),
+            ("g".into(), "b".into(), 3.0),
+            ("g".into(), "c".into(), 3.0),
+            ("h".into(), "d".into(), 11.0),
+        ];
+        return edges;
+    }
 
     #[test]
     fn test_initial_clustering_for_induced() {
@@ -245,5 +314,37 @@ mod tests {
         let actual: Clustering = initial_clustering_for_induced(num_nodes_per_cluster, 20);
         assert_eq!(actual, expected);
         assert_eq!(actual.num_nodes(), 20);
+    }
+
+    #[test]
+    fn test_guarantee_clustering_sanity() {
+        let edges = edge_list();
+        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
+        let compact_network: &CompactNetwork = labeled_network.compact();
+        let mut clustering: Clustering = Clustering::as_self_clusters(compact_network.num_nodes());
+        // node 'a' and node 'h' do not share an edge
+        let a_compact = labeled_network.compact_id_for("a".into()).unwrap();
+        let h_compact = labeled_network.compact_id_for("h".into()).unwrap();
+        clustering
+            .update_cluster_at(a_compact, clustering.next_cluster_id())
+            .expect("Updating this known cluster for a should work");
+        clustering
+            .update_cluster_at(h_compact, clustering[a_compact])
+            .expect("Updating this known cluster for h should work");
+        clustering.remove_empty_clusters();
+        assert_eq!(clustering[a_compact], clustering[h_compact]);
+        guarantee_clustering_sanity(&compact_network, &mut clustering)
+            .expect("guarantee clustering sanity should not throw an error");
+        assert_ne!(clustering[a_compact], clustering[h_compact]);
+        let isolate_clusters: Vec<ClusterId> = vec![clustering[a_compact], clustering[h_compact]];
+        let mut isolates: HashSet<ClusterId> = HashSet::new();
+        isolates.extend(isolate_clusters);
+        clustering
+            .into_iter()
+            .filter(|item| item.node_id != a_compact && item.node_id != h_compact)
+            .for_each(|item| {
+                assert!(!isolates.contains(&item.cluster));
+            })
     }
 }
