@@ -85,10 +85,6 @@ where
 
     guarantee_clustering_sanity(network, &mut clustering)?;
 
-    // verify initial clustering provided is in a sane state for leiden to operate
-    // any node in a cluster must either be a singleton in that cluster or be connected to at least
-    // one other node in that cluster
-
     let mut improved: bool = false;
 
     log!(
@@ -242,6 +238,9 @@ fn guarantee_clustering_sanity(
     network: &CompactNetwork,
     clustering: &mut Clustering,
 ) -> Result<(), CoreError> {
+    // verify initial clustering provided is in a sane state for leiden to operate
+    // any node in a cluster must either be a singleton in that cluster or be connected to at least
+    // one other node in that cluster
     let mut node_neighbors: HashMap<CompactNodeId, HashSet<CompactNodeId>> = HashMap::new();
     for CompactNodeItem { id: node, .. } in network.into_iter() {
         let mut neighbors: HashSet<CompactNodeId> = HashSet::new();
