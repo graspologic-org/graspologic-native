@@ -28,6 +28,10 @@ def detect(
 ) -> str:
     search_sequence1 = f" - CPython {python_major_minor} at "
     search_sequence2 = f" - CPython {python_major_minor}m at "
+    print("Debug information:")
+    print("---------------")
+    print(maturin_output)
+    print("---------------")
     lines = maturin_output.split("\n")
     matches = []
     for line in lines:
