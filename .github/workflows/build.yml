@@ -109,7 +109,7 @@ jobs:
           python-version: 3.8
       - uses: actions/download-artifact@v2
         with:
-          name: wheels
+          name: dist
           path: dist/
       - name: Generate SHA256 files for each wheel
         run: |
