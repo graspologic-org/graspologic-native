@@ -68,7 +68,9 @@ impl HierarchicalCluster {
     use_modularity = "true",
     trials = "1"
 )]
-#[pyo3(text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, seed, trials)")]
+#[pyo3(
+    text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, seed, trials)"
+)]
 /// Leiden is a global network partitioning algorithm. Given a list of edges and a maximization
 /// function, it will iterate through the network attempting to find an optimal partitioning of
 /// the entire network.
@@ -147,7 +149,9 @@ fn leiden(
     use_modularity = "true",
     max_cluster_size = "1000"
 )]
-#[pyo3(text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, max_cluster_size, seed)")]
+#[pyo3(
+    text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, max_cluster_size, seed)"
+)]
 /// Hierarchical leiden builds upon the leiden function by further breaking down exceptionally large clusters.
 ///
 /// The process followed is to run leiden the first time, then each cluster with membership

@@ -6,7 +6,11 @@ use pyo3::prelude::*;
 
 use network_partitions::errors::CoreError;
 
-create_exception!(leiden, ClusterIndexingError, pyo3::exceptions::PyRuntimeError);
+create_exception!(
+    leiden,
+    ClusterIndexingError,
+    pyo3::exceptions::PyRuntimeError
+);
 create_exception!(leiden, EmptyNetworkError, pyo3::exceptions::PyValueError);
 create_exception!(
     leiden,
