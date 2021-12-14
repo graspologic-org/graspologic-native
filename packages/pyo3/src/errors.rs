@@ -6,25 +6,25 @@ use pyo3::prelude::*;
 
 use network_partitions::errors::CoreError;
 
-create_exception!(leiden, ClusterIndexingError, pyo3::exceptions::RuntimeError);
-create_exception!(leiden, EmptyNetworkError, pyo3::exceptions::ValueError);
+create_exception!(leiden, ClusterIndexingError, pyo3::exceptions::PyRuntimeError);
+create_exception!(leiden, EmptyNetworkError, pyo3::exceptions::PyValueError);
 create_exception!(
     leiden,
     InvalidCommunityMappingError,
-    pyo3::exceptions::ValueError
+    pyo3::exceptions::PyValueError
 );
 create_exception!(
     leiden,
     InternalNetworkIndexingError,
-    pyo3::exceptions::RuntimeError
+    pyo3::exceptions::PyRuntimeError
 );
-create_exception!(leiden, ParameterRangeError, pyo3::exceptions::ValueError);
+create_exception!(leiden, ParameterRangeError, pyo3::exceptions::PyValueError);
 create_exception!(
     leiden,
     UnsafeInducementError,
-    pyo3::exceptions::RuntimeError
+    pyo3::exceptions::PyRuntimeError
 );
-create_exception!(leiden, QueueError, pyo3::exceptions::RuntimeError);
+create_exception!(leiden, QueueError, pyo3::exceptions::PyRuntimeError);
 
 #[derive(Debug)]
 pub enum PyLeidenError {
