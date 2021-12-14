@@ -28,9 +28,5 @@ chrono = { version = "0.4", optional = true }
 version = "0.15.1"
 features = ["extension-module", "abi3-py36"]
 
-[features]
-extension-module = ["pyo3/extension-module"]
-default = ["extension-module"]
-
 logging = ["network_partitions/logging", "chrono"]
 

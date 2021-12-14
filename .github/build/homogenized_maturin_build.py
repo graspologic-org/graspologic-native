@@ -51,7 +51,7 @@ if __name__ == "__main__":
         exit(-1)
     interpreter = detect(sys.argv[1], execute())
     results = subprocess.run(
-        ["maturin", "build", "--release", "-i", interpreter],
+        ["maturin", "build", "--release", "-i", interpreter, "--compatibility", "manylinux2014"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE
     )
