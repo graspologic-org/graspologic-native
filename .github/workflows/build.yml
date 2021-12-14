@@ -60,27 +60,29 @@ jobs:
       # ourselves or overwrite the .tar.gz sdist.
       - uses: messense/maturin-action@v1
         if: ${{ matrix.os == 'windows-latest' }}
-        name: Maturin Build for ${{matrix.os}}
+        name: Maturin Build for Windows
         with:
           maturin-version: latest
           command: build
           target: x64
-          args: --release -i ${{env.pythonLocation}}\python.exe --no-sdist
+          args: -m packages/pyo3/Cargo.toml --release -i ${{env.pythonLocation}}\python.exe --no-sdist
 
       - uses: messense/maturin-action@v1
         if: ${{ matrix.os == 'macos-latest' }}
+        name: Maturin Build for MacOS
         with:
           maturin-version: latest
           command: build
-          args: --release --universal2 --no-sdist
+          args: -m packages/pyo3/Cargo.toml --release --universal2 --no-sdist
 
       - uses: messense/maturin-action@v1
         if: ${{ matrix.os == 'ubuntu-latest' }}
+        name: Maturin Build for Linux
         with:
           maturin-version: latest
           command: build
           target: x64
-          args: --release
+          args: -m packages/pyo3/Cargo.toml --release
           manylinux: 2014
 
       - name: Python Unittests
