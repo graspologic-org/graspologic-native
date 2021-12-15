@@ -7,9 +7,9 @@ license = "MIT"
 description = "CLI Runner for the topologic associated crates (network_partitions and eventually network_automatic_layouts)"
 
 [dependencies]
-clap = "2.33"
-rand = "0.7"
-rand_xorshift = "0.2"
+clap = "2.34"
+rand = "0.8"
+rand_xorshift = "0.3"
 network_partitions={path = "../network_partitions"}
 
 [features]

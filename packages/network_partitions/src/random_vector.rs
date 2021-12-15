@@ -18,7 +18,7 @@ where
     }
 
     for i in 0..length {
-        let random_index: usize = rng.gen_range(0, length);
+        let random_index: usize = rng.gen_range(0..length);
         let old_value: usize = permutation[i];
         permutation[i] = permutation[random_index];
         permutation[random_index] = old_value;

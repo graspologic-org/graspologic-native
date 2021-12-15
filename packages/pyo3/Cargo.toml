@@ -1,7 +1,7 @@
 [package]
 name = "graspologic_native"
 version = "1.1.0"
-authors = ["dwpryce@microsoft.com"]
+authors = ["daxpryce@microsoft.com"]
 edition = "2018"
 license = "MIT"
 description = "Python native companion module to the graspologic library"
@@ -12,22 +12,21 @@ maintainer = "Dax Pryce"
 maintainer-email = "daxpryce@microsoft.com"
 requires-python = ">=3.6,<3.11"
 project-url = {"Github" = "https://github.com/microsoft/graspologic-native", "Graspologic"="https://github.com/microsoft/graspologic"}
-classifier = ["Development Status :: 3 - Alpha", "License :: OSI Approved :: MIT License", "Programming Language :: Python :: Implementation :: CPython", "Programming Language :: Python :: 3.6", "Programming Language :: Python :: 3.7", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9", "Topic :: Scientific/Engineering :: Mathematics"]
+classifier = ["Development Status :: 5 - Production/Stable", "License :: OSI Approved :: MIT License", "Programming Language :: Python :: Implementation :: CPython", "Programming Language :: Python :: 3.6", "Programming Language :: Python :: 3.7", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9", "Programming Language :: Python :: 3.10", "Topic :: Scientific/Engineering :: Mathematics"]
 
 [lib]
 name = "graspologic_native"
 crate-type = ["rlib","cdylib"]
 
 [dependencies]
-pyo3 = "0.11.1"
-rand = "0.7"
-rand_xorshift = "0.2"
+rand = "0.8"
+rand_xorshift = "0.3"
 network_partitions = { path = "../network_partitions" }
 chrono = { version = "0.4", optional = true }
 
-[features]
-extension-module = ["pyo3/extension-module"]
-default = ["extension-module"]
+[dependencies.pyo3]
+version = "0.15.1"
+features = ["extension-module", "abi3-py36"]
 
 logging = ["network_partitions/logging", "chrono"]
 

@@ -162,7 +162,7 @@ impl SubnetworkClusteringGenerator {
         }
 
         for i in 0..length {
-            let random_index: usize = rng.gen_range(0, length);
+            let random_index: usize = rng.gen_range(0..length);
             let old_value: usize = self.node_processing_order[i];
             self.node_processing_order[i] = self.node_processing_order[random_index];
             self.node_processing_order[random_index] = old_value;
