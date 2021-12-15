@@ -61,7 +61,7 @@ impl HierarchicalCluster {
 }
 
 #[pyfunction(
-    "*",
+    "/",
     resolution = "1.0",
     randomness = "0.001",
     iterations = "1",
@@ -142,7 +142,7 @@ fn leiden(
 }
 
 #[pyfunction(
-    "*",
+    "/",
     resolution = "1.0",
     randomness = "0.001",
     iterations = "1",
@@ -234,7 +234,7 @@ fn hierarchical_leiden(
     return result.map_err(|err| PyErr::from(err));
 }
 
-#[pyfunction("*", resolution = "1.0")]
+#[pyfunction("/", resolution = "1.0")]
 #[pyo3(text_signature = "(edges, communities, /, resolution)")]
 /// Measures the modularity for a global partitioning of a network described by a list of edges.
 ///
