@@ -59,7 +59,7 @@ impl FullNetworkWorkQueue {
         let mut stable: Vec<bool> = Vec::with_capacity(len);
         for i in 0..len {
             stable.push(false);
-            let random_index: usize = rng.gen_range(0, len);
+            let random_index: usize = rng.gen_range(0..len);
             let old_value: usize = permutation[i];
             permutation[i] = permutation[random_index];
             permutation[random_index] = old_value;

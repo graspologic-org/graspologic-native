@@ -1,7 +1,14 @@
 name: graspologic-native CI
 on: [push, pull_request]
 jobs:
-  materialize-build-version:
+  codestyle-check:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check format
+        run: |
+          cargo fmt -- --check
+  version:
     runs-on: "ubuntu-latest"
     steps:
       - uses: actions/checkout@v2
@@ -22,49 +29,62 @@ jobs:
         with:
           name: version-txt
           path: version.txt
-  code-check-rust:
-    runs-on: "ubuntu-latest"
-    steps:
-      - uses: actions/checkout@v2
-      - name: Check format
-        run: |
-          rustup toolchain install nightly --component rustfmt
-          rustup default nightly
-          cargo fmt -- --check
-  build-rust:
-    needs: ["materialize-build-version", "code-check-rust"]
+  build:
+    needs: ['codestyle-check', 'version']
     runs-on: ${{ matrix.os }}
-    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
-        python_version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python ${{matrix.python_version}}
+      - name: Set up Python 3.9
         uses: actions/setup-python@v2
         with:
-          python-version: "${{matrix.python_version}}"
+          python-version: 3.9
       - uses: actions/download-artifact@v2
         with:
           name: cargo-toml
           path: materialized
-      - name: "Materialized Cargo Placement"
+      - name: Materialized Cargo Placement
         run: |
-          mv packages/pyo3/Cargo.toml Cargo.toml.old
           mv materialized/Cargo.toml packages/pyo3/Cargo.toml
-      - name: Update python environment
-        run: |
-          pip install -U pip setuptools wheel
-          pip install maturin
+        shell: bash
       - name: Rust Unittests
         run: |
-          rustup default nightly
           cargo test --manifest-path packages/network_partitions/Cargo.toml
-      - name: Package Python
-        run: |
-          cd packages/pyo3
-          python ${{github.workspace}}/.github/build/homogenized_maturin_build.py ${{matrix.python_version}}
+
+      # the following are the actual maturin build actions. each one is different per OS, so rather than copy/paste
+      # the same steps except for the build, we conditionally do one of the builds depending on the os in question
+      # note that windows and mac don't do sdists, but ubuntu does; this is just because we don't need to repeat
+      # ourselves or overwrite the .tar.gz sdist.
+      - uses: messense/maturin-action@v1
+        if: ${{ matrix.os == 'windows-latest' }}
+        name: Maturin Build for Windows
+        with:
+          maturin-version: latest
+          command: build
+          target: x64
+          args: -m packages/pyo3/Cargo.toml --release -i ${{env.pythonLocation}}\python.exe --no-sdist
+
+      - uses: messense/maturin-action@v1
+        if: ${{ matrix.os == 'macos-latest' }}
+        name: Maturin Build for MacOS
+        with:
+          maturin-version: latest
+          command: build
+          args: -m packages/pyo3/Cargo.toml --release --universal2 --no-sdist
+
+      - uses: messense/maturin-action@v1
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        name: Maturin Build for Linux
+        with:
+          maturin-version: latest
+          command: build
+          target: x64
+          args: -m packages/pyo3/Cargo.toml --release
+          manylinux: 2014
+
       - name: Python Unittests
         run: |
           cd packages/pyo3
@@ -73,12 +93,14 @@ jobs:
         shell: bash
       - uses: actions/upload-artifact@v2
         with:
-          name: wheels
-          path: target/wheels/*.whl
+          name: dist
+          path: |
+            target/wheels/*.whl
+            target/wheels/*.tar.gz
   publish:
     runs-on: ubuntu-latest
-    needs: "build-rust"
-    if: (github.ref=='refs/heads/main' || github.ref=='refs/heads/dev') && needs.build-rust.result=='success'
+    needs: 'build'
+    if: github.ref=='refs/heads/main' || github.ref=='refs/heads/dev'
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.8
@@ -87,7 +109,7 @@ jobs:
           python-version: 3.8
       - uses: actions/download-artifact@v2
         with:
-          name: wheels
+          name: dist
           path: dist/
       - name: Generate SHA256 files for each wheel
         run: |
@@ -102,13 +124,6 @@ jobs:
           GRASPOLOGIC_VERSION=$(cat version/version.txt)
           echo "GRASPOLOGIC_VERSION=$GRASPOLOGIC_VERSION" >> $GITHUB_ENV
           echo $GRASPOLOGIC_VERSION
-      - name: Is Prerelease?
-        run: |
-          if [[ "$GITHUB_REF" == "ref/heads/dev" ]]; then
-            echo "GRASPOLOGIC_PRERELEASE=true" >> $GITHUB_ENV
-          else
-            echo "GRASPOLOGIC_PRERELEASE=false" >> $GITHUB_ENV
-          fi
       - name: Install dependencies
         run: |
           python -m pip install -U pip setuptools wheel twine
@@ -126,5 +141,5 @@ jobs:
           tag_name: ${{ env.GRASPOLOGIC_VERSION }}
           release_name: graspologic-native-${{ env.GRASPOLOGIC_VERSION }}
           body_path: "checksums.txt"
-          prerelease: ${{ env.GRASPOLOGIC_PRERELEASE }}
+          prerelease: github.ref=='refs/heads/dev'
 

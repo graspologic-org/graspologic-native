@@ -8,7 +8,7 @@ mod mediator;
 
 use std::collections::{HashMap, HashSet};
 
-use pyo3::exceptions::{TypeError, ValueError};
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::{create_exception, wrap_pyfunction, wrap_pymodule, PyObjectProtocol};
 
@@ -38,8 +38,8 @@ pub struct HierarchicalCluster {
     is_final_cluster: bool,
 }
 
-#[pyproto]
-impl PyObjectProtocol for HierarchicalCluster {
+#[pymethods]
+impl HierarchicalCluster {
     fn __repr__(&self) -> PyResult<String> {
         let parent: String = self
             .parent_cluster
@@ -61,14 +61,16 @@ impl PyObjectProtocol for HierarchicalCluster {
 }
 
 #[pyfunction(
-    "*",
+    "/",
     resolution = "1.0",
     randomness = "0.001",
     iterations = "1",
     use_modularity = "true",
     trials = "1"
 )]
-#[text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, seed, trials)"]
+#[pyo3(
+    text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, seed, trials)"
+)]
 /// Leiden is a global network partitioning algorithm. Given a list of edges and a maximization
 /// function, it will iterate through the network attempting to find an optimal partitioning of
 /// the entire network.
@@ -102,9 +104,6 @@ impl PyObjectProtocol for HierarchicalCluster {
 /// :rtype: Dict[str, int]
 /// :raises ClusterIndexingError:
 /// :raises EmptyNetworkError:
-/// :raises InvalidCommunityMappingError: The starting communities dictionary either did not include
-///     a community for each node in the edge list or the edge list did not contain a node present
-///     in the starting community mapping.
 /// :raises InternalNetworkIndexingError: An internal algorithm error. Please report with reproduction steps.
 /// :raises ParameterRangeError: One of the parameters provided did not meet the requirements in the documentation.
 /// :raises UnsafeInducementError: An internal algorithm error. Please report with reproduction steps.
@@ -143,14 +142,16 @@ fn leiden(
 }
 
 #[pyfunction(
-    "*",
+    "/",
     resolution = "1.0",
     randomness = "0.001",
     iterations = "1",
     use_modularity = "true",
     max_cluster_size = "1000"
 )]
-#[text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, max_cluster_size, seed)"]
+#[pyo3(
+    text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, max_cluster_size, seed)"
+)]
 /// Hierarchical leiden builds upon the leiden function by further breaking down exceptionally large clusters.
 ///
 /// The process followed is to run leiden the first time, then each cluster with membership
@@ -197,9 +198,6 @@ fn leiden(
 /// :rtype: List[HierarchicalCluster]
 /// :raises ClusterIndexingError:
 /// :raises EmptyNetworkError:
-/// :raises InvalidCommunityMappingError: The starting communities dictionary either did not include
-///     a community for each node in the edge list or the edge list did not contain a node present
-///     in the starting community mapping.
 /// :raises InternalNetworkIndexingError: An internal algorithm error. Please report with reproduction steps.
 /// :raises ParameterRangeError: One of the parameters provided did not meet the requirements in the documentation.
 /// :raises UnsafeInducementError: An internal algorithm error. Please report with reproduction steps.
@@ -236,8 +234,8 @@ fn hierarchical_leiden(
     return result.map_err(|err| PyErr::from(err));
 }
 
-#[pyfunction("*", resolution = "1.0")]
-#[text_signature = "(edges, communities, /, resolution)"]
+#[pyfunction("/", resolution = "1.0")]
+#[pyo3(text_signature = "(edges, communities, /, resolution)")]
 /// Measures the modularity for a global partitioning of a network described by a list of edges.
 ///
 /// :param edges: A list of edges, defined with the source and target encoded as strings and the edge weight being a float.
