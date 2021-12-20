@@ -19,7 +19,7 @@ def leiden(
     use_modularity: bool,
     seed: Optional[int],
     trials: int
-) -> Dict[str, int]: ...
+) -> Tuple[float, Dict[str, int]]: ...
 
 def hierarchical_leiden(
     edges: List[Tuple[str, str, float]],
