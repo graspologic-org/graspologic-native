@@ -101,7 +101,7 @@ impl HierarchicalCluster {
 ///     clustering.
 /// :return: The modularity of the best community partitioning and a dictionary of node to community
 ///     ids. The community ids will start at 0 and increment.
-/// :rtype: Dict[str, int]
+/// :rtype: Tuple[float, Dict[str, int]]
 /// :raises ClusterIndexingError:
 /// :raises EmptyNetworkError:
 /// :raises InternalNetworkIndexingError: An internal algorithm error. Please report with reproduction steps.
