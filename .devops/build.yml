@@ -1,69 +1,16 @@
 jobs:
-- job: build_identity
-  displayName: Materialize Python Build Number
-  pool:
-    vmImage: "ubuntu-latest"
-  steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '3.8'
-    - script: |
-        pip install -U pip
-        pip install toml
-        python .devops/manifest_version.py packages/pyo3/Cargo.toml "$BUILD_SOURCEBRANCHNAME" "$BUILD_BUILDNUMBER"
-      displayName: "Create Python Version Number"
-    - publish: packages/pyo3/Cargo.toml
-      artifact: cargotoml
-- job: python_build
+- job: component_detection
   displayName: Python Build
   dependsOn: build_identity
   strategy:
     matrix:
-      linux_p36:
+      linux:
         os: "ubuntu-latest"
-        python_version: "3.6"
-      linux_p37:
-        os: "ubuntu-latest"
-        python_version: "3.7"
-      linux_p38:
-        os: "ubuntu-latest"
-        python_version: "3.8"
-      mac_p36:
+      macos:
         os: "macos-latest"
-        python_version: "3.6"
-      mac_p37:
-        os: "macos-latest"
-        python_version: "3.7"
-      mac_p38:
-        os: "macos-latest"
-        python_version: "3.8"
-      windows_p36:
+      windows:
         os: "windows-latest"
-        python_version: "3.6"
-      windows_p37:
-        os: "windows-latest"
-        python_version: "3.7"
-      windows_p38:
-        os: "windows-latest"
-        python_version: "3.8"
   pool:
     vmImage: $(os)
   steps:
-    - download: current
-      artifact: cargotoml
-    - task: Rust@1
-      inputs:
-        installNightly: true
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: $(python_version)
-    - script: |
-        pip install -U pip setuptools wheel
-        pip install maturin
-        cd packages/pyo3
-        cp $(Pipeline.Workspace)/cargotoml/Cargo.toml Cargo.toml
-        python $(Build.SourcesDirectory)/.devops/homogenized_maturin_build.py $(python_version)
-        pip install ../target/wheels/*.whl
-        python -m unittest
-    - publish: target/wheels
-      artifact: drop$(System.JobName)
+    - task: ComponentGovernanceComponentDetection@0
