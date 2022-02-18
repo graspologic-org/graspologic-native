@@ -1,7 +1,6 @@
 jobs:
 - job: component_detection
-  displayName: Python Build
-  dependsOn: build_identity
+  displayName: Register Dependencies
   strategy:
     matrix:
       linux:
