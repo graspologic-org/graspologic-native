@@ -13,3 +13,6 @@ jobs:
     vmImage: $(os)
   steps:
     - task: ComponentGovernanceComponentDetection@0
+      inputs:
+        detectorsToRun: 'Rust, Python'
+        verbosity: 'Verbose'
