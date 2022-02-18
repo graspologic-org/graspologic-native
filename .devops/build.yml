@@ -1,18 +1,24 @@
 jobs:
-- job: component_detection
-  displayName: Register Dependencies
-  strategy:
-    matrix:
-      linux:
-        os: "ubuntu-latest"
-      macos:
-        os: "macos-latest"
-      windows:
-        os: "windows-latest"
-  pool:
-    vmImage: $(os)
+  - job: component_detection
+    displayName: Register Dependencies
+    strategy:
+      matrix:
+        linux:
+          os: "ubuntu-latest"
+        macos:
+          os: "macos-latest"
+        windows:
+          os: "windows-latest"
+    pool:
+      vmImage: $(os)
   steps:
+    - task: Bash@3
+      inputs:
+        targetType: 'inline'
+        script: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          cd packages/pyo3
+          cargo build --release
     - task: ComponentGovernanceComponentDetection@0
       inputs:
-        detectorsToRun: 'Rust, Python'
         verbosity: 'Verbose'
