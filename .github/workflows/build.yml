@@ -65,7 +65,7 @@ jobs:
           maturin-version: latest
           command: build
           target: x64
-          args: -m packages/pyo3/Cargo.toml --release -i ${{env.pythonLocation}}\python.exe --no-sdist
+          args: -m packages/pyo3/Cargo.toml --release -i ${{env.pythonLocation}}\python.exe
 
       - uses: messense/maturin-action@v1
         if: ${{ matrix.os == 'macos-latest' }}
@@ -73,7 +73,7 @@ jobs:
         with:
           maturin-version: latest
           command: build
-          args: -m packages/pyo3/Cargo.toml --release --universal2 --no-sdist
+          args: -m packages/pyo3/Cargo.toml --release --universal2
 
       - uses: messense/maturin-action@v1
         if: ${{ matrix.os == 'ubuntu-latest' }}
