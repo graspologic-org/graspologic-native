@@ -7,8 +7,6 @@ license = "MIT"
 description = "Python native companion module to the graspologic library"
 readme = "README.md"
 
-[package.metadata.maturin]
-
 [lib]
 name = "graspologic_native"
 crate-type = ["rlib","cdylib"]
