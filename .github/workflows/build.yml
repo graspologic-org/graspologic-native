@@ -4,16 +4,16 @@ jobs:
   codestyle-check:
     runs-on: "ubuntu-latest"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Check format
         run: |
           cargo fmt -- --check
   version:
     runs-on: "ubuntu-latest"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python 3.8
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
       - name: Materialize build number
@@ -21,11 +21,11 @@ jobs:
           pip install -U pip
           pip install toml
           python .github/build/manifest_version.py packages/pyo3/Cargo.toml version.txt
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: cargo-toml
           path: packages/pyo3/Cargo.toml
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: version-txt
           path: version.txt
@@ -37,12 +37,12 @@ jobs:
       matrix:
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python 3.9
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: 3.9
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: cargo-toml
           path: materialized
@@ -104,12 +104,12 @@ jobs:
     needs: 'build'
     if: github.ref=='refs/heads/main' || github.ref=='refs/heads/dev'
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python 3.8
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
@@ -117,7 +117,7 @@ jobs:
         run: |
           sha256sum dist/*.whl > checksums.txt
           cat checksums.txt
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: version-txt
           path: version/
