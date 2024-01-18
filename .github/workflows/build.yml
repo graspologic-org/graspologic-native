@@ -84,7 +84,7 @@ jobs:
           maturin-version: 1.4.0
           command: build
           target: x64
-          args: -m packages/pyo3/Cargo.toml --release
+          args: -m packages/pyo3/Cargo.toml --release --sdist
           manylinux: 2014
 
       - name: Python Unittests
