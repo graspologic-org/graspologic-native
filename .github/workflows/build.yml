@@ -58,28 +58,30 @@ jobs:
       # the same steps except for the build, we conditionally do one of the builds depending on the os in question
       # note that windows and mac don't do sdists, but ubuntu does; this is just because we don't need to repeat
       # ourselves or overwrite the .tar.gz sdist.
-      - uses: messense/maturin-action@v1
+
+      - uses: PyO3/maturin-action@v1
         if: ${{ matrix.os == 'windows-latest' }}
         name: Maturin Build for Windows
         with:
-          maturin-version: latest
+          maturin-version: 1.4.0
           command: build
           target: x64
           args: -m packages/pyo3/Cargo.toml --release -i ${{env.pythonLocation}}\python.exe
 
-      - uses: messense/maturin-action@v1
+      - uses: PyO3/maturin-action@v1
         if: ${{ matrix.os == 'macos-latest' }}
         name: Maturin Build for MacOS
         with:
-          maturin-version: latest
+          maturin-version: 1.4.0
           command: build
-          args: -m packages/pyo3/Cargo.toml --release --universal2
+          target: universal2-apple-darwin
+          args: -m packages/pyo3/Cargo.toml --release
 
-      - uses: messense/maturin-action@v1
+      - uses: PyO3/maturin-action@v1
         if: ${{ matrix.os == 'ubuntu-latest' }}
         name: Maturin Build for Linux
         with:
-          maturin-version: latest
+          maturin-version: 1.4.0
           command: build
           target: x64
           args: -m packages/pyo3/Cargo.toml --release
