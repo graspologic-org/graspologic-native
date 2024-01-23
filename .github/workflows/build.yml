@@ -93,9 +93,10 @@ jobs:
           pip install ../../target/wheels/*.whl
           python -m unittest
         shell: bash
-      - uses: actions/upload-artifact@v2
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: dist-${{ matrix.os }}
           path: |
             target/wheels/*.whl
             target/wheels/*.tar.gz
@@ -111,7 +112,15 @@ jobs:
           python-version: 3.8
       - uses: actions/download-artifact@v4
         with:
-          name: dist
+          name: dist-ubuntu-latest
+          path: dist/
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-windows-latest
+          path: dist/
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-windows-latest
           path: dist/
       - name: Generate SHA256 files for each wheel
         run: |
