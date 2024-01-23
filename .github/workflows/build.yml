@@ -120,7 +120,7 @@ jobs:
           path: dist/
       - uses: actions/download-artifact@v4
         with:
-          name: dist-windows-latest
+          name: dist-macos-latest
           path: dist/
       - name: Generate SHA256 files for each wheel
         run: |
