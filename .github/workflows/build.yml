@@ -93,7 +93,7 @@ jobs:
           pip install ../../target/wheels/*.whl
           python -m unittest
         shell: bash
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: dist
           path: |
