@@ -4,16 +4,16 @@ jobs:
   codestyle-check:
     runs-on: "ubuntu-latest"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Check format
         run: |
           cargo fmt -- --check
   version:
     runs-on: "ubuntu-latest"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python 3.8
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
       - name: Materialize build number
@@ -21,11 +21,11 @@ jobs:
           pip install -U pip
           pip install toml
           python .github/build/manifest_version.py packages/pyo3/Cargo.toml version.txt
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: cargo-toml
           path: packages/pyo3/Cargo.toml
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: version-txt
           path: version.txt
@@ -37,12 +37,12 @@ jobs:
       matrix:
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python 3.9
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: 3.9
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: cargo-toml
           path: materialized
@@ -58,31 +58,33 @@ jobs:
       # the same steps except for the build, we conditionally do one of the builds depending on the os in question
       # note that windows and mac don't do sdists, but ubuntu does; this is just because we don't need to repeat
       # ourselves or overwrite the .tar.gz sdist.
-      - uses: messense/maturin-action@v1
+
+      - uses: PyO3/maturin-action@v1
         if: ${{ matrix.os == 'windows-latest' }}
         name: Maturin Build for Windows
         with:
-          maturin-version: latest
+          maturin-version: 1.4.0
           command: build
           target: x64
           args: -m packages/pyo3/Cargo.toml --release -i ${{env.pythonLocation}}\python.exe
 
-      - uses: messense/maturin-action@v1
+      - uses: PyO3/maturin-action@v1
         if: ${{ matrix.os == 'macos-latest' }}
         name: Maturin Build for MacOS
         with:
-          maturin-version: latest
+          maturin-version: 1.4.0
           command: build
-          args: -m packages/pyo3/Cargo.toml --release --universal2
+          target: universal2-apple-darwin
+          args: -m packages/pyo3/Cargo.toml --release
 
-      - uses: messense/maturin-action@v1
+      - uses: PyO3/maturin-action@v1
         if: ${{ matrix.os == 'ubuntu-latest' }}
         name: Maturin Build for Linux
         with:
-          maturin-version: latest
+          maturin-version: 1.4.0
           command: build
           target: x64
-          args: -m packages/pyo3/Cargo.toml --release
+          args: -m packages/pyo3/Cargo.toml --release --sdist
           manylinux: 2014
 
       - name: Python Unittests
@@ -102,20 +104,21 @@ jobs:
     needs: 'build'
     if: github.ref=='refs/heads/main' || github.ref=='refs/heads/dev'
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python 3.8
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
       - name: Generate SHA256 files for each wheel
         run: |
           sha256sum dist/*.whl > checksums.txt
+          sha256sum dist/*.tar.gz >> checksums.txt
           cat checksums.txt
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: version-txt
           path: version/

@@ -29,7 +29,7 @@ git clone git@github.com:microsoft/graspologic-native.git
 cd graspologic-native
 python3.8 -m venv venv
 pip install -U pip setuptools wheel
-pip install pyo3 maturin
+pip install maturin
 cd packages/pyo3
 maturin build --release -i python3.8  # this is where things break on windows.  instead of `python3.8` here, you will need the full path to the correct python.exe on your windows machine, something like `-i "C:\python38\bin\python.exe"`
 ```
