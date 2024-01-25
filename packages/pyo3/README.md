@@ -14,7 +14,7 @@ implementation provided at [https://github.com/CWTSLeiden/networkanalysis](https
 was used as a starting point.
 
 ## Releases
-Builds are provided for x86_64 architectures only, for Windows, macOS, and Linux, for Python versions 3.6->3.9.
+Builds are provided for x86_64 architectures only, for Windows, macOS, and Linux, for Python versions 3.6->3.12.
 
 ## Build Tools
 Rust nightly 1.37+ (we are currently using 1.40)

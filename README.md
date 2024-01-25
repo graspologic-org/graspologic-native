@@ -14,7 +14,7 @@ and a package using [pyo3](https://github.com/pyo3/pyo3) will expose the functio
 - 64 bit operating system
 
 ## Published Versions
-We currently build for x86_64 platforms only, Windows, macOS, and Ubuntu, for python versions 3.6, 3.7, 3.8, and 3.9.
+We currently build for x86_64 platforms only, Windows, macOS, and Ubuntu, for python versions 3.6 - 3.12.
 
 ## Building
 If for any reason, the published wheels do not match your architecture or if you have a particularly old version of glibc that isn't sufficiently accounted for in our current build matrix, or you just want to build it yourself, the following build instructions should help.
@@ -29,7 +29,7 @@ git clone git@github.com:microsoft/graspologic-native.git
 cd graspologic-native
 python3.8 -m venv venv
 pip install -U pip setuptools wheel
-pip install pyo3 maturin
+pip install maturin
 cd packages/pyo3
 maturin build --release -i python3.8  # this is where things break on windows.  instead of `python3.8` here, you will need the full path to the correct python.exe on your windows machine, something like `-i "C:\python38\bin\python.exe"`
 ```
