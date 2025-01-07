@@ -1,6 +1,6 @@
 [package]
 name = "graspologic_native"
-version = "1.2.1"
+version = "1.2.2"
 authors = ["daxpryce@microsoft.com"]
 edition = "2018"
 license = "MIT"
@@ -18,7 +18,7 @@ network_partitions = { path = "../network_partitions" }
 chrono = { version = "0.4", optional = true }
 
 [dependencies.pyo3]
-version = "0.15.1"
+version = "0.23"
 features = ["extension-module", "abi3-py36"]
 
 logging = ["network_partitions/logging", "chrono"]
