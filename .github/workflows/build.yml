@@ -12,10 +12,10 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python 3.8
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Materialize build number
         run: |
           pip install -U pip
@@ -38,10 +38,10 @@ jobs:
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python 3.9
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: 3.9
+          python-version: 3.12
       - uses: actions/download-artifact@v4
         with:
           name: cargo-toml
@@ -106,10 +106,10 @@ jobs:
     if: github.ref=='refs/heads/main' || github.ref=='refs/heads/dev'
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python 3.8
+      - name: Set up Python 3.12
         uses: actions/setup-python@v2
         with:
-          python-version: 3.8
+          python-version: 3.12
       - uses: actions/download-artifact@v4
         with:
           name: dist-ubuntu-latest
