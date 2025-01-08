@@ -189,8 +189,7 @@ impl CompactNetwork {
 
     pub fn total_edge_weight_per_node(&self) -> Vec<f64> {
         // when using modularity, this should return the exact same as node_weights.
-        self
-            .nodes
+        self.nodes
             .iter()
             .map(|(_, node_id)| {
                 self.neighbors_for(*node_id)
@@ -279,7 +278,11 @@ impl CompactNetwork {
         let mut cluster_nodes: Vec<CompactNode> = Vec::with_capacity(clustering.next_cluster_id());
         let mut cluster_neighbors: Vec<CompactNeighbor> = Vec::new();
 
-        for (cluster, cluster_weight) in cluster_weights.iter().take(clustering.next_cluster_id()).enumerate() {
+        for (cluster, cluster_weight) in cluster_weights
+            .iter()
+            .take(clustering.next_cluster_id())
+            .enumerate()
+        {
             cluster_nodes.push((*cluster_weight, cluster_neighbors.len()));
             let mut neighbors: Vec<(&usize, &f64)> = cluster_to_cluster_edges
                 .entry(cluster)
@@ -317,8 +320,7 @@ impl NetworkDetails for CompactNetwork {
     }
 
     fn total_edge_weight(&self) -> f64 {
-        self
-            .neighbors
+        self.neighbors
             .iter()
             .map(|neighbor| neighbor.1)
             .sum::<f64>()

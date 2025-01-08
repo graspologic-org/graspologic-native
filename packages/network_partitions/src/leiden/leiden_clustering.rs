@@ -194,7 +194,9 @@ fn initial_clustering_for_induced(
 ) -> Clustering {
     // Create an initial clustering for the induced network based on the non-refined clustering
     let mut clusters_induced_network: Vec<usize> = Vec::with_capacity(num_nodes);
-    for (num_nodes_per_induced_cluster_index, repetitions) in num_nodes_per_cluster_induced_network.iter().enumerate() {
+    for (num_nodes_per_induced_cluster_index, repetitions) in
+        num_nodes_per_cluster_induced_network.iter().enumerate()
+    {
         // fill num_nodes_per_induced_cluster_index into positions from clusters_induced_network_index to clusters_induced_network_index + num_nodes_per_cluster_reduced_network[num_nodes_per_induced_cluster_index]
         clusters_induced_network
             .extend(iter::repeat(num_nodes_per_induced_cluster_index).take(*repetitions));

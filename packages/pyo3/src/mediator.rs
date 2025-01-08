@@ -26,7 +26,6 @@ pub fn leiden(
     seed: Option<u64>,
     trials: u64,
 ) -> Result<(f64, HashMap<String, usize>), PyLeidenError> {
-
     let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
     let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
 
@@ -102,7 +101,6 @@ pub fn hierarchical_leiden(
     max_cluster_size: u32,
     seed: Option<u64>,
 ) -> Result<Vec<HierarchicalCluster>, PyLeidenError> {
-
     let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
     let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
 

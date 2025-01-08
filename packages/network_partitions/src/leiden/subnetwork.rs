@@ -178,8 +178,7 @@ fn node_can_move(
 ) -> bool {
     let connectivity_threshold: f64 =
         cluster_weights[node] * (total_node_weight - cluster_weights[node]) * adjusted_resolution;
-    singleton_clusters[node]
-        && external_edge_weight_per_cluster[node] >= connectivity_threshold
+    singleton_clusters[node] && external_edge_weight_per_cluster[node] >= connectivity_threshold
 }
 
 fn node_reset(

@@ -78,8 +78,7 @@ impl Clustering {
         &self,
         node: usize,
     ) -> Result<usize, CoreError> {
-        self
-            .node_to_cluster_mapping
+        self.node_to_cluster_mapping
             .get_or_err(node, CoreError::ClusterIndexingError)
     }
 

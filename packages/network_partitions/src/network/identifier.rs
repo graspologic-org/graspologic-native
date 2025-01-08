@@ -12,7 +12,7 @@ pub struct Identifier<T> {
 impl<T> Default for Identifier<T>
 where
     T: Clone + Hash + Eq,
- {
+{
     fn default() -> Self {
         Self::new()
     }

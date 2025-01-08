@@ -50,7 +50,7 @@ pub struct LabeledNetworkBuilder<T> {
 impl<T> Default for LabeledNetworkBuilder<T>
 where
     T: Clone + Eq + Hash + PartialEq + std::cmp::PartialEq,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -117,11 +117,8 @@ where
         let mut total_self_links_edge_weight: f64 = 0_f64;
         for node_id in 0..id_to_labels.len() {
             let mut node_weight: f64 = 0_f64; // we are going to set the node_weight as the summation of edge weights regardless of whether we're using modularity or CPM, but if we are using CPM we won't bother to use it.
-            let mut node_neighbors: Vec<(&CompactNodeId, &f64)> = node_to_neighbors
-                .get(&node_id)
-                .unwrap()
-                .iter()
-                .collect();
+            let mut node_neighbors: Vec<(&CompactNodeId, &f64)> =
+                node_to_neighbors.get(&node_id).unwrap().iter().collect();
             let neighbor_start: usize = neighbors.len();
             node_neighbors.sort_by(|a, b| a.0.cmp(b.0));
             for (neighbor_id, edge_weight) in node_neighbors {

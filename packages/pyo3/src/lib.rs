@@ -227,7 +227,10 @@ fn modularity(
 /// graspologic_native currently supports global network partitioning via the Leiden University
 /// algorithm described by https://arxiv.org/abs/1810.08473
 #[pymodule]
-fn graspologic_native(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
+fn graspologic_native(
+    py: Python<'_>,
+    module: &Bound<'_, PyModule>,
+) -> PyResult<()> {
     module.add_class::<HierarchicalCluster>()?;
     module.add_wrapped(wrap_pyfunction!(leiden))?;
     module.add_wrapped(wrap_pyfunction!(hierarchical_leiden))?;
