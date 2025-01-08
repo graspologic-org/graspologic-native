@@ -1,0 +1,2 @@
+too-many-arguments-threshold=20 # for what it is worth, clippy is absolutely right and pythonic-ness is absolutely wrong
+enum-variant-name-threshold=10 # it doesn't like the repitition in "Error" in my export-to-python error types

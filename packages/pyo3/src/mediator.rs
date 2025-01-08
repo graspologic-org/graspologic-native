@@ -72,7 +72,7 @@ pub fn leiden(
     }
     let clustering: HashMap<String, usize> = map_from(&labeled_network, &best_clustering.unwrap())?;
 
-    return Ok((best_quality_score, clustering));
+    Ok((best_quality_score, clustering))
 }
 
 pub fn modularity(
@@ -89,7 +89,7 @@ pub fn modularity(
         Some(resolution),
         true,
     )?;
-    return Ok(quality);
+    Ok(quality)
 }
 
 pub fn hierarchical_leiden(
@@ -143,7 +143,7 @@ pub fn hierarchical_leiden(
         });
     }
 
-    return Ok(hierarchical_clustering);
+    Ok(hierarchical_clustering)
 }
 
 fn map_from(
@@ -155,7 +155,7 @@ fn map_from(
         let node_name = network.label_for(item.node_id);
         map.insert(node_name.into(), item.cluster);
     }
-    return Ok(map);
+    Ok(map)
 }
 
 fn communities_to_clustering(
@@ -193,5 +193,5 @@ fn communities_to_clustering(
     // and compress any gaps
     clustering.remove_empty_clusters();
 
-    return Ok(clustering);
+    Ok(clustering)
 }

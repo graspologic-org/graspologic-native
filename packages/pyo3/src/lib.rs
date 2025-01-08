@@ -40,18 +40,18 @@ impl HierarchicalCluster {
             .parent_cluster
             .map(|level| level.to_string())
             .unwrap_or("None".into());
-        return Ok(format!(
+        Ok(format!(
             "HierarchicalCluster(node=\"{}\", cluster=\"{}\", level={}, parent_cluster={}, is_final_cluster={})",
             self.node,
             self.cluster,
             self.level,
             parent,
             self.is_final_cluster,
-        ));
+        ))
     }
 
     fn __str__(&self) -> PyResult<String> {
-        return self.__repr__();
+        self.__repr__()
     }
 }
 
@@ -117,7 +117,7 @@ fn leiden(
                 trials,
             )
         });
-    return result.map_err(|err| PyErr::from(err));
+    result.map_err(PyErr::from)
 }
 
 /// Hierarchical leiden builds upon the leiden function by further breaking down exceptionally large clusters.
@@ -194,7 +194,7 @@ fn hierarchical_leiden(
             seed,
         )
     });
-    return result.map_err(|err| PyErr::from(err));
+    result.map_err(PyErr::from)
 }
 
 /// Measures the modularity for a global partitioning of a network described by a list of edges.
@@ -221,7 +221,7 @@ fn modularity(
     let result: Result<f64, PyLeidenError> =
         py.allow_threads(move || mediator::modularity(edges, communities, resolution));
 
-    return result.map_err(|err| PyErr::from(err));
+    result.map_err(PyErr::from)
 }
 
 /// graspologic_native currently supports global network partitioning via the Leiden University

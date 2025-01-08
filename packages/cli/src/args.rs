@@ -39,24 +39,24 @@ impl TryFrom<ArgMatches> for CliArgs {
     fn try_from(matches: ArgMatches) -> Result<Self, Self::Error> {
         let source_edges: &str = matches
             .get_one(SOURCE_EDGES)
-            .map(|v| *v)
+            .cloned()
             .ok_or(ParseCliError::RequiredValueError)?;
         let output: &str = matches
             .get_one(OUTPUT)
-            .map(|v| *v)
+            .cloned()
             .ok_or(ParseCliError::RequiredValueError)?;
         let separator: &str = matches
             .get_one(SEPARATOR)
-            .map(|v| *v)
+            .cloned()
             .ok_or(ParseCliError::RequiredValueError)?;
         let source_index: usize = *matches.get_one(SOURCE_INDEX).unwrap();
         let target_index: usize = *matches.get_one(TARGET_INDEX).unwrap();
         let weight_index: Option<usize> = matches.get_one(WEIGHT_INDEX).map(|v| *v);
-        let seed: Option<usize> = matches.get_one(SEED).map(|v| *v);
+        let seed: Option<usize> = matches.get_one(SEED).cloned();
         let iterations: usize = *matches.get_one(ITERATIONS).unwrap();
         let resolution: f64 = *matches.get_one(RESOLUTION).unwrap();
         let randomness: f64 = *matches.get_one(RANDOMNESS).unwrap();
-        let quality_option: Option<&str> = matches.get_one(QUALITY).map(|v| *v);
+        let quality_option: Option<&str> = matches.get_one(QUALITY).cloned();
         let use_modularity: bool = match quality_option {
             Some(quality_value) => {
                 if quality_value == "cpm" {
