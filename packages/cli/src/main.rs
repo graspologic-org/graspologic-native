@@ -1,8 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-#![feature(in_band_lifetimes)]
-use clap::{App, Arg};
+use clap::{Arg, ArgAction, Command};
 use std::convert::TryFrom;
 
 mod args;
@@ -11,83 +10,82 @@ mod leiden;
 use crate::args::*;
 
 fn main() {
-    let matches = App::new("leiden_cli")
+    let matches = Command::new("leiden_cli")
         .version("0.1.0")
         .author("Dwayne Pryce <dwpryce@microsoft.com>")
         .about("Runs leiden over a provided edge list and outputs the results")
         .arg(
-            Arg::with_name(SOURCE_EDGES)
+            Arg::new(SOURCE_EDGES)
                 .help("The edge list that defines the graph's connections")
                 .required(true)
                 .index(1),
         )
         .arg(
-            Arg::with_name(OUTPUT)
+            Arg::new(OUTPUT)
                 .help("The output for the communities detected")
                 .required(true)
                 .index(2),
         )
         .arg(
-            Arg::with_name(SEPARATOR)
-                .short("s")
+            Arg::new(SEPARATOR)
+                .short('s')
                 .help("The character to split the edge list on")
-                .takes_value(true)
+                .action(ArgAction::Set)
                 .default_value("\t"),
         )
         .arg(
-            Arg::with_name(SOURCE_INDEX)
-                .takes_value(true)
+            Arg::new(SOURCE_INDEX)
+                .action(ArgAction::Set)
                 .help("0-based index of source column from edge file")
                 .default_value("0"),
         )
         .arg(
-            Arg::with_name(TARGET_INDEX)
-                .takes_value(true)
+            Arg::new(TARGET_INDEX)
+                .action(ArgAction::Set)
                 .help("0-based index of target column from edge file")
                 .default_value("1"),
         )
         .arg(
-            Arg::with_name(WEIGHT_INDEX)
-                .takes_value(true)
+            Arg::new(WEIGHT_INDEX)
+                .action(ArgAction::Set)
                 .help("0-based index of weight column from edge file")
         )
         .arg(
-            Arg::with_name(SEED)
-                .takes_value(true)
+            Arg::new(SEED)
+                .action(ArgAction::Set)
                 .help("A seed value to start the PRNG")
                 .long("seed"),
         )
         .arg(
-            Arg::with_name(ITERATIONS)
-                .takes_value(true)
+            Arg::new(ITERATIONS)
+                .action(ArgAction::Set)
                 .help("Leiden is an inherently recursive algorithm, however it may find itself (due to randomness) at a localized maximum. Setting iterations to a number larger than 1 may allow you to jump out of a local maximum and continue until a better optimum partitioning is found (note that any n > 1 will mean that leiden will be run again for a minimum of n-1 more times, though it may be run for many more than that")
-                .short("i")
+                .short('i')
                 .default_value("1"),
         )
         .arg(
-            Arg::with_name(RESOLUTION)
-                .takes_value(true)
+            Arg::new(RESOLUTION)
+                .action(ArgAction::Set)
                 .help("")
-                .short("r")
+                .short('r')
                 .default_value("1.0")
         )
         .arg(
-            Arg::with_name(RANDOMNESS)
-                .takes_value(true)
+            Arg::new(RANDOMNESS)
+                .action(ArgAction::Set)
                 .help("")
                 .default_value("1E-2"),
         )
         .arg(
-            Arg::with_name(QUALITY)
-                .takes_value(true)
+            Arg::new(QUALITY)
+                .action(ArgAction::Set)
                 .help("Quality function to use")
-                .short("q")
-                .possible_value("modularity")
-                .possible_value("cpm")
+                .short('q')
+                .value_parser(["modularity", "cpm"])
                 .default_value("modularity"),
         )
         .arg(
-            Arg::with_name(HAS_HEADER)
+            Arg::new(HAS_HEADER)
                 .help("Flag must be added if the source file contains a header line")
                 .long("has_header")
         )

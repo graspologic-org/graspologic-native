@@ -2,17 +2,19 @@
 // Licensed under the MIT license.
 
 use crate::errors::CoreError;
-use crate::log;
 use std::collections::VecDeque;
 
 use rand::Rng;
 
 /// The FullNetworkWorkQueue is a composite class of a circular work queue and a vec of bools indicating
 /// when a node should be treated as stable
+///
 /// Node stability is a prerequisite for being added to the work queue, for if it is unstable
 /// it likewise means it is already on the work queue.
+///
 /// On `pop_front()`, presuming the work queue is not empty, the value is retrieved from the work queue,
 /// and immediately marked as stable; this guarantees consistency within this object.
+///
 /// If a recoverable error occurs while processing this item, the onus is on the user to
 /// reinsert the item via `push_front`.
 #[derive(Debug, PartialEq)]
@@ -24,10 +26,10 @@ pub struct FullNetworkWorkQueue {
 impl FullNetworkWorkQueue {
     #[allow(dead_code)]
     pub fn new() -> FullNetworkWorkQueue {
-        return FullNetworkWorkQueue {
+        FullNetworkWorkQueue {
             work_queue: VecDeque::new(),
             stable: Vec::new(),
-        };
+        }
     }
 
     /// Generates a random order from [0..len) in the work queue, and initializes the stability
@@ -40,6 +42,7 @@ impl FullNetworkWorkQueue {
     /// > This avoids reallocating where possible, but the conditions for that are strict, and subject
     /// > to change, and so shouldn't be relied upon unless the Vec<T> came from From<VecDeque<T>>
     /// > and hasn't been reallocated.
+    ///
     /// However, creation of this item is called infrequently, and our worst case scenario is 2 O(n)s
     /// instead of 1 O(n). We'll use the speed boost now, but this may be worth looking into for
     /// speed sake periodically to verify that the actual current Rust impl of the `From` trait for
@@ -60,12 +63,10 @@ impl FullNetworkWorkQueue {
         for i in 0..len {
             stable.push(false);
             let random_index: usize = rng.gen_range(0..len);
-            let old_value: usize = permutation[i];
-            permutation[i] = permutation[random_index];
-            permutation[random_index] = old_value;
+            permutation.swap(i, random_index);
         }
         let work_queue: VecDeque<usize> = VecDeque::from(permutation);
-        return FullNetworkWorkQueue { work_queue, stable };
+        FullNetworkWorkQueue { work_queue, stable }
     }
 
     /// Presuming the work queue contains a value, pops it from that queue, marks the node as stable,
@@ -74,7 +75,7 @@ impl FullNetworkWorkQueue {
     pub fn pop_front(&mut self) -> Result<usize, CoreError> {
         let front: usize = self.work_queue.pop_front().ok_or(CoreError::QueueError)?;
         self.stable[front] = true;
-        return Ok(front);
+        Ok(front)
     }
 
     /// If the item to be added to the work queue is not already on it, add it to the queue
@@ -87,7 +88,6 @@ impl FullNetworkWorkQueue {
         if self.stable.len() <= item {
             // increase the size to at least include item+1, and set all of the values to be stable
             // this shouldn't be happening, and if it is, I need to know about it
-            log!("We had to resize the FullNetworkWorkQueue's stability array from {} to {}. This is unexpected.", self.stable.len(), item+1);
             self.stable.resize(item + 1, true);
         }
         if self.stable[item] {
@@ -97,12 +97,12 @@ impl FullNetworkWorkQueue {
     }
 
     pub fn is_empty(&self) -> bool {
-        return self.work_queue.is_empty();
+        self.work_queue.is_empty()
     }
 
     #[allow(dead_code)]
     pub fn len(&self) -> usize {
-        return self.work_queue.len();
+        self.work_queue.len()
     }
 }
 

@@ -22,29 +22,38 @@ pub struct LabeledNetwork<T> {
 
 impl<T> NetworkDetails for LabeledNetwork<T> {
     fn num_nodes(&self) -> usize {
-        return self.network_structure.num_nodes();
+        self.network_structure.num_nodes()
     }
 
     fn num_edges(&self) -> usize {
-        return self.network_structure.num_edges();
+        self.network_structure.num_edges()
     }
 
     fn total_node_weight(&self) -> f64 {
-        return self.network_structure.total_node_weight();
+        self.network_structure.total_node_weight()
     }
 
     fn total_edge_weight(&self) -> f64 {
-        return self.network_structure.total_edge_weight();
+        self.network_structure.total_edge_weight()
     }
 
     fn total_self_links_edge_weight(&self) -> f64 {
-        return self.network_structure.total_self_links_edge_weight();
+        self.network_structure.total_self_links_edge_weight()
     }
 }
 
 pub struct LabeledNetworkBuilder<T> {
     node_to_neighbors: HashMap<CompactNodeId, HashMap<CompactNodeId, f64>>,
     identifier: Identifier<T>,
+}
+
+impl<T> Default for LabeledNetworkBuilder<T>
+where
+    T: Clone + Eq + Hash + PartialEq + std::cmp::PartialEq,
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T> LabeledNetworkBuilder<T>
@@ -56,7 +65,7 @@ where
             node_to_neighbors: HashMap::new(),
             identifier: Identifier::new(),
         };
-        return builder;
+        builder
     }
 
     pub fn with_capacity(size: usize) -> Self {
@@ -64,7 +73,7 @@ where
             node_to_neighbors: HashMap::with_capacity(size),
             identifier: Identifier::new(),
         };
-        return builder;
+        builder
     }
 
     pub fn build<I>(
@@ -93,12 +102,12 @@ where
             let target_id: CompactNodeId = self.identifier.identify(target);
             node_to_neighbors
                 .entry(source_id)
-                .or_insert(HashMap::new())
+                .or_default()
                 .entry(target_id)
                 .or_insert(weight);
             node_to_neighbors
                 .entry(target_id)
-                .or_insert(HashMap::new())
+                .or_default()
                 .entry(source_id)
                 .or_insert(weight);
         }
@@ -108,11 +117,8 @@ where
         let mut total_self_links_edge_weight: f64 = 0_f64;
         for node_id in 0..id_to_labels.len() {
             let mut node_weight: f64 = 0_f64; // we are going to set the node_weight as the summation of edge weights regardless of whether we're using modularity or CPM, but if we are using CPM we won't bother to use it.
-            let mut node_neighbors: Vec<(&CompactNodeId, &f64)> = node_to_neighbors
-                .get(&node_id)
-                .unwrap()
-                .into_iter()
-                .collect();
+            let mut node_neighbors: Vec<(&CompactNodeId, &f64)> =
+                node_to_neighbors.get(&node_id).unwrap().iter().collect();
             let neighbor_start: usize = neighbors.len();
             node_neighbors.sort_by(|a, b| a.0.cmp(b.0));
             for (neighbor_id, edge_weight) in node_neighbors {
@@ -136,7 +142,7 @@ where
             network_structure: compact_network,
         };
 
-        return labeled_network;
+        labeled_network
     }
 }
 
@@ -148,27 +154,26 @@ where
     /// that the edges provided are already in sorted source order (e.g. all edges from A to <N>
     /// all appear sequentially in the list.
     /// So we must collect and guarantee that behavior with this function.
-
     pub fn compact(&self) -> &CompactNetwork {
-        return &self.network_structure;
+        &self.network_structure
     }
 
     pub fn compact_id_for(
         &self,
         id: T,
     ) -> Option<CompactNodeId> {
-        return self.labels_to_id.get(&id).cloned();
+        self.labels_to_id.get(&id).cloned()
     }
 
     pub fn label_for(
         &self,
         compact_id: CompactNodeId,
     ) -> &T {
-        return &self.id_to_labels[compact_id];
+        &self.id_to_labels[compact_id]
     }
 
     pub fn labeled_ids(&self) -> impl Iterator<Item = (CompactNodeId, &T)> + '_ {
-        return self.id_to_labels.iter().enumerate();
+        self.id_to_labels.iter().enumerate()
     }
 
     pub fn load_from(
@@ -211,7 +216,7 @@ where
         let labeled_network: LabeledNetwork<String> =
             builder.build(edges.into_iter(), use_modularity);
 
-        return Ok(labeled_network);
+        Ok(labeled_network)
     }
 }
 

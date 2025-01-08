@@ -6,7 +6,6 @@ use std::collections::{HashMap, HashSet};
 use network_partitions::clustering::Clustering;
 use network_partitions::errors::CoreError;
 use network_partitions::leiden;
-use network_partitions::log;
 use network_partitions::network::prelude::*;
 use network_partitions::quality;
 use network_partitions::safe_vectors::SafeVectors;
@@ -27,16 +26,9 @@ pub fn leiden(
     seed: Option<u64>,
     trials: u64,
 ) -> Result<(f64, HashMap<String, usize>), PyLeidenError> {
-    log!(
-        "Building a LabeledNetwork for quality measured by {}",
-        if use_modularity { "modularity" } else { "CPM" }
-    );
-    log!("Adding {} edges to network builder", edges.len());
-
     let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
     let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
 
-    log!("Network built from edges");
     let initial_clustering: Option<Clustering> = match starting_communities {
         Some(starting_communities) => Some(communities_to_clustering(
             &labeled_network,
@@ -44,8 +36,6 @@ pub fn leiden(
         )?),
         None => None,
     };
-
-    log!("Mapped any starting communities from a dictionary into a clustering");
 
     let mut rng: XorShiftRng = match seed {
         Some(seed) => XorShiftRng::seed_from_u64(seed),
@@ -68,7 +58,6 @@ pub fn leiden(
             use_modularity,
         )?;
 
-        log!("Completed leiden process");
         let quality_score: f64 = quality::quality(
             compact_network,
             &clustering,
@@ -80,13 +69,9 @@ pub fn leiden(
             best_clustering = Some(clustering);
         }
     }
-
-    log!("Calculated quality score");
     let clustering: HashMap<String, usize> = map_from(&labeled_network, &best_clustering.unwrap())?;
 
-    log!("Mapped the clustering back to a dictionary: {:?}");
-
-    return Ok((best_quality_score, clustering));
+    Ok((best_quality_score, clustering))
 }
 
 pub fn modularity(
@@ -103,7 +88,7 @@ pub fn modularity(
         Some(resolution),
         true,
     )?;
-    return Ok(quality);
+    Ok(quality)
 }
 
 pub fn hierarchical_leiden(
@@ -116,16 +101,9 @@ pub fn hierarchical_leiden(
     max_cluster_size: u32,
     seed: Option<u64>,
 ) -> Result<Vec<HierarchicalCluster>, PyLeidenError> {
-    log!(
-        "Building a LabeledNetwork for quality measured by {}",
-        if use_modularity { "modularity" } else { "CPM" }
-    );
-    log!("Adding {} edges to network builder", edges.len());
-
     let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
     let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
 
-    log!("Network built from edges");
     let clustering: Option<Clustering> = match starting_communities {
         Some(starting_communities) => Some(communities_to_clustering(
             &labeled_network,
@@ -133,15 +111,11 @@ pub fn hierarchical_leiden(
         )?),
         None => None,
     };
-
-    log!("Mapped any starting communities from a dictionary into a clustering");
-
     let mut rng: XorShiftRng = match seed {
         Some(seed) => XorShiftRng::seed_from_u64(seed),
         None => XorShiftRng::from_entropy(),
     };
 
-    log!("Running hierarchical leiden over a network of {} nodes, {} edges, with a max_cluster_size of {}", labeled_network.num_nodes(), labeled_network.num_edges(), max_cluster_size);
     let compact_network: &CompactNetwork = labeled_network.compact();
     let internal_clusterings: Vec<leiden::HierarchicalCluster> = leiden::hierarchical_leiden(
         compact_network,
@@ -153,8 +127,6 @@ pub fn hierarchical_leiden(
         use_modularity,
         max_cluster_size,
     )?;
-
-    log!("Completed hierarchical leiden process");
 
     let mut hierarchical_clustering: Vec<HierarchicalCluster> =
         Vec::with_capacity(internal_clusterings.len());
@@ -169,7 +141,7 @@ pub fn hierarchical_leiden(
         });
     }
 
-    return Ok(hierarchical_clustering);
+    Ok(hierarchical_clustering)
 }
 
 fn map_from(
@@ -181,7 +153,7 @@ fn map_from(
         let node_name = network.label_for(item.node_id);
         map.insert(node_name.into(), item.cluster);
     }
-    return Ok(map);
+    Ok(map)
 }
 
 fn communities_to_clustering(
@@ -219,5 +191,5 @@ fn communities_to_clustering(
     // and compress any gaps
     clustering.remove_empty_clusters();
 
-    return Ok(clustering);
+    Ok(clustering)
 }
