@@ -8,10 +8,13 @@ use rand::Rng;
 
 /// The FullNetworkWorkQueue is a composite class of a circular work queue and a vec of bools indicating
 /// when a node should be treated as stable
+///
 /// Node stability is a prerequisite for being added to the work queue, for if it is unstable
 /// it likewise means it is already on the work queue.
+///
 /// On `pop_front()`, presuming the work queue is not empty, the value is retrieved from the work queue,
 /// and immediately marked as stable; this guarantees consistency within this object.
+///
 /// If a recoverable error occurs while processing this item, the onus is on the user to
 /// reinsert the item via `push_front`.
 #[derive(Debug, PartialEq)]
@@ -39,11 +42,12 @@ impl FullNetworkWorkQueue {
     /// > This avoids reallocating where possible, but the conditions for that are strict, and subject
     /// > to change, and so shouldn't be relied upon unless the Vec<T> came from From<VecDeque<T>>
     /// > and hasn't been reallocated.
-    /// > However, creation of this item is called infrequently, and our worst case scenario is 2 O(n)s
-    /// > instead of 1 O(n). We'll use the speed boost now, but this may be worth looking into for
-    /// > speed sake periodically to verify that the actual current Rust impl of the `From` trait for
-    /// > Vec<T> to VecDeque<T> hasn't changed the implementation.  As of the time of writing this,
-    /// > the place to check is https://doc.rust-lang.org/src/alloc/collections/vec_deque.rs.html#2742-2772
+    ///
+    /// However, creation of this item is called infrequently, and our worst case scenario is 2 O(n)s
+    /// instead of 1 O(n). We'll use the speed boost now, but this may be worth looking into for
+    /// speed sake periodically to verify that the actual current Rust impl of the `From` trait for
+    /// Vec<T> to VecDeque<T> hasn't changed the implementation.  As of the time of writing this,
+    /// the place to check is https://doc.rust-lang.org/src/alloc/collections/vec_deque.rs.html#2742-2772
     pub fn items_in_random_order<T>(
         len: usize,
         rng: &mut T,
