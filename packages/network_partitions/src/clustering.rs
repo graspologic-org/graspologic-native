@@ -27,13 +27,19 @@ pub struct Clustering {
     node_to_cluster_mapping: Vec<usize>,
 }
 
+impl Default for Clustering {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Clustering {
     /// Creates an empty Clustering with no nodes.  Can be added to by calling `update_node_cluster`.
     pub fn new() -> Clustering {
-        return Clustering {
+        Clustering {
             next_cluster_id: 0,
             node_to_cluster_mapping: Vec::new(),
-        };
+        }
     }
 
     /// Creates a Clustering with `num_nodes` entries in the `node_to_cluster_mapping` vector and
@@ -41,10 +47,10 @@ impl Clustering {
     pub fn as_self_clusters(num_nodes: usize) -> Clustering {
         let mut identity_mapping: Vec<usize> = Vec::with_capacity(num_nodes);
         identity_mapping.extend(0..num_nodes);
-        return Clustering {
+        Clustering {
             next_cluster_id: num_nodes,
             node_to_cluster_mapping: identity_mapping,
-        };
+        }
     }
 
     /// Creates a clustering (with ZERO sanity checking) of the values stored in Clustering.
@@ -53,28 +59,28 @@ impl Clustering {
         node_to_cluster_mapping: Vec<usize>,
         next_cluster_id: usize,
     ) -> Clustering {
-        return Clustering {
+        Clustering {
             next_cluster_id,
             node_to_cluster_mapping,
-        };
+        }
     }
 
     /// The actual number of nodes in this Clustering
     pub fn num_nodes(&self) -> usize {
-        return self.node_to_cluster_mapping.len();
+        self.node_to_cluster_mapping.len()
     }
 
     pub fn next_cluster_id(&self) -> usize {
-        return self.next_cluster_id;
+        self.next_cluster_id
     }
 
     pub fn cluster_at(
         &self,
         node: usize,
     ) -> Result<usize, CoreError> {
-        return self
+        self
             .node_to_cluster_mapping
-            .get_or_err(node, CoreError::ClusterIndexingError);
+            .get_or_err(node, CoreError::ClusterIndexingError)
     }
 
     pub fn update_cluster_at(
@@ -82,23 +88,23 @@ impl Clustering {
         node: usize,
         cluster: usize,
     ) -> Result<(), CoreError> {
-        return if self.node_to_cluster_mapping.is_safe_access(node) {
+        if self.node_to_cluster_mapping.is_safe_access(node) {
             self.node_to_cluster_mapping[node] = cluster;
             self.next_cluster_id = self.next_cluster_id.max(cluster + 1);
             Ok(())
         } else {
             Err(CoreError::ClusterIndexingError)
-        };
+        }
     }
 
     /// Generates a vector of nodes for each cluster with the index referencing the cluster and the
     /// value being a count from 0 upward.
     pub fn num_nodes_per_cluster(&self) -> Vec<u64> {
-        let mut nodes_per_cluster: Vec<u64> = vec![0 as u64; self.next_cluster_id];
+        let mut nodes_per_cluster: Vec<u64> = vec![0_u64; self.next_cluster_id];
         for i in 0..self.node_to_cluster_mapping.len() {
             nodes_per_cluster[self.node_to_cluster_mapping[i]] += 1;
         }
-        return nodes_per_cluster;
+        nodes_per_cluster
     }
 
     /// Generates a vector containing every node id for every cluster id. The outer vector index
@@ -107,13 +113,13 @@ impl Clustering {
         let number_nodes_per_cluster: Vec<u64> = self.num_nodes_per_cluster();
         let mut nodes_per_cluster: Vec<Vec<CompactNodeId>> =
             Vec::with_capacity(self.next_cluster_id);
-        for i in 0..self.next_cluster_id {
-            nodes_per_cluster.push(Vec::with_capacity(number_nodes_per_cluster[i] as usize));
+        for nodes_in_cluster in number_nodes_per_cluster.iter().take(self.next_cluster_id) {
+            nodes_per_cluster.push(Vec::with_capacity(*nodes_in_cluster as usize));
         }
         for (node_id, cluster) in self.node_to_cluster_mapping.iter().enumerate() {
             nodes_per_cluster[*cluster].push(node_id);
         }
-        return nodes_per_cluster;
+        nodes_per_cluster
     }
 
     /// This method compacts the Clustering, removing empty clusters and applying new cluster IDs
@@ -186,7 +192,7 @@ impl From<Clustering> for HashMap<usize, usize> {
         for i in 0..clustering.node_to_cluster_mapping.len() {
             map.insert(i, clustering.node_to_cluster_mapping[i]);
         }
-        return map;
+        map
     }
 }
 
@@ -195,11 +201,11 @@ pub struct ClusterIterator<'a> {
     next_cluster_id: usize,
 }
 
-impl<'a> Iterator for ClusterIterator<'a> {
+impl Iterator for ClusterIterator<'_> {
     type Item = ClusterItem;
 
     fn next(&mut self) -> Option<Self::Item> {
-        return if self.next_cluster_id == self.cluster_ref.node_to_cluster_mapping.len() {
+        if self.next_cluster_id == self.cluster_ref.node_to_cluster_mapping.len() {
             None
         } else {
             let item = ClusterItem {
@@ -208,7 +214,7 @@ impl<'a> Iterator for ClusterIterator<'a> {
             };
             self.next_cluster_id += 1;
             Some(item)
-        };
+        }
     }
 }
 
@@ -217,10 +223,10 @@ impl<'a> IntoIterator for &'a Clustering {
     type IntoIter = ClusterIterator<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        return ClusterIterator {
-            cluster_ref: &self,
+        ClusterIterator {
+            cluster_ref: self,
             next_cluster_id: 0,
-        };
+        }
     }
 }
 

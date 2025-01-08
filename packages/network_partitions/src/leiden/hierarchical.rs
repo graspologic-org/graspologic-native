@@ -1,6 +1,6 @@
 use rand::Rng;
 
-use super::leiden::leiden;
+use super::leiden_clustering::leiden;
 use crate::clustering::{ClusterItem, Clustering};
 use crate::errors::CoreError;
 use crate::network::prelude::*;
@@ -53,10 +53,10 @@ impl HierarchicalClustering {
         }
         cluster_range.push((range_start, hierarchical.len()));
 
-        return HierarchicalClustering {
+        HierarchicalClustering {
             hierarchical_clusterings: hierarchical,
             cluster_range,
-        };
+        }
     }
 
     pub fn insert_subnetwork_clustering(
@@ -99,7 +99,7 @@ impl HierarchicalClustering {
             self.hierarchical_clusterings[old_hierarchical_cluster_entry].is_final_cluster = false;
         }
 
-        return final_cluster_id;
+        final_cluster_id
     }
 }
 
@@ -112,7 +112,7 @@ impl OrderedClustering for Clustering {
         let mut ordered_cluster_items: Vec<ClusterItem> = self.into_iter().collect();
         ordered_cluster_items
             .sort_by(|a, b| a.cluster.cmp(&b.cluster).then(a.node_id.cmp(&b.node_id)));
-        return ordered_cluster_items;
+        ordered_cluster_items
     }
 }
 
@@ -212,5 +212,5 @@ where
             }
         }
     }
-    return Ok(hierarchical_clustering.hierarchical_clusterings);
+    Ok(hierarchical_clustering.hierarchical_clusterings)
 }

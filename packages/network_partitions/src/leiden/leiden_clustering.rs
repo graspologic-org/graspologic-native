@@ -79,7 +79,7 @@ where
     }
 
     let mut clustering: Clustering =
-        clustering.unwrap_or(Clustering::as_self_clusters(network.num_nodes().clone()));
+        clustering.unwrap_or(Clustering::as_self_clusters(network.num_nodes()));
 
     guarantee_clustering_sanity(network, &mut clustering)?;
 
@@ -96,7 +96,7 @@ where
         )?;
     }
 
-    return Ok((improved, clustering));
+    Ok((improved, clustering))
 }
 
 /// This function will be executed repeatedly as per number_iterations
@@ -119,7 +119,7 @@ where
         rng,
     )?;
 
-    if clustering.next_cluster_id() < network.num_nodes().clone() {
+    if clustering.next_cluster_id() < network.num_nodes() {
         // given the updated clustering, generate subnetworks for each cluster comprised solely of the
         // nodes in that cluster, then fast, low-fidelity cluster the subnetworks, merging the results
         // back into the primary clustering before returning
@@ -185,7 +185,7 @@ where
         )?;
         clustering.merge_clustering(&induced_network_clustering);
     }
-    return Ok(improved);
+    Ok(improved)
 }
 
 fn initial_clustering_for_induced(
@@ -194,18 +194,16 @@ fn initial_clustering_for_induced(
 ) -> Clustering {
     // Create an initial clustering for the induced network based on the non-refined clustering
     let mut clusters_induced_network: Vec<usize> = Vec::with_capacity(num_nodes);
-    for num_nodes_per_induced_cluster_index in 0..num_nodes_per_cluster_induced_network.len() {
+    for (num_nodes_per_induced_cluster_index, repetitions) in num_nodes_per_cluster_induced_network.iter().enumerate() {
         // fill num_nodes_per_induced_cluster_index into positions from clusters_induced_network_index to clusters_induced_network_index + num_nodes_per_cluster_reduced_network[num_nodes_per_induced_cluster_index]
-        let repetitions: usize =
-            num_nodes_per_cluster_induced_network[num_nodes_per_induced_cluster_index];
         clusters_induced_network
-            .extend(iter::repeat(num_nodes_per_induced_cluster_index).take(repetitions));
+            .extend(iter::repeat(num_nodes_per_induced_cluster_index).take(*repetitions));
     }
     let next_cluster_id: usize = match clusters_induced_network.last() {
-        Some(largest_cluster) => largest_cluster.clone() + 1,
+        Some(largest_cluster) => *largest_cluster + 1,
         None => 0,
     };
-    return Clustering::as_defined(clusters_induced_network, next_cluster_id);
+    Clustering::as_defined(clusters_induced_network, next_cluster_id)
 }
 
 fn guarantee_clustering_sanity(
@@ -226,11 +224,11 @@ fn guarantee_clustering_sanity(
     let mut cluster_membership: HashMap<ClusterId, HashSet<CompactNodeId>> = HashMap::new();
     for ClusterItem { node_id, cluster } in clustering.into_iter() {
         let cluster_members: &mut HashSet<CompactNodeId> =
-            cluster_membership.entry(cluster).or_insert(HashSet::new());
+            cluster_membership.entry(cluster).or_default();
         cluster_members.insert(node_id);
     }
 
-    for (_cluster, cluster_members) in &cluster_membership {
+    for cluster_members in cluster_membership.values() {
         if cluster_members.len() > 1 {
             // we are only trying to move non-singletons if they don't have a possible connection
             for cluster_member in cluster_members {
@@ -244,7 +242,7 @@ fn guarantee_clustering_sanity(
             }
         }
     }
-    return Ok(());
+    Ok(())
 }
 
 #[cfg(test)]

@@ -51,7 +51,7 @@ impl TryFrom<ArgMatches> for CliArgs {
             .ok_or(ParseCliError::RequiredValueError)?;
         let source_index: usize = *matches.get_one(SOURCE_INDEX).unwrap();
         let target_index: usize = *matches.get_one(TARGET_INDEX).unwrap();
-        let weight_index: Option<usize> = matches.get_one(WEIGHT_INDEX).map(|v| *v);
+        let weight_index: Option<usize> = matches.get_one(WEIGHT_INDEX).copied();
         let seed: Option<usize> = matches.get_one(SEED).cloned();
         let iterations: usize = *matches.get_one(ITERATIONS).unwrap();
         let resolution: f64 = *matches.get_one(RESOLUTION).unwrap();
@@ -84,7 +84,7 @@ impl TryFrom<ArgMatches> for CliArgs {
             use_modularity,
             skip_first_line,
         };
-        return Ok(cli_args);
+        Ok(cli_args)
     }
 }
 
@@ -97,12 +97,12 @@ pub enum ParseCliError {
 
 impl From<ParseFloatError> for ParseCliError {
     fn from(_: ParseFloatError) -> Self {
-        return ParseCliError::NotANumber;
+        ParseCliError::NotANumber
     }
 }
 
 impl From<ParseIntError> for ParseCliError {
     fn from(_: ParseIntError) -> Self {
-        return ParseCliError::NotANumber;
+        ParseCliError::NotANumber
     }
 }

@@ -9,6 +9,15 @@ pub struct Identifier<T> {
     new_to_original: Vec<T>,
 }
 
+impl<T> Default for Identifier<T>
+where
+    T: Clone + Hash + Eq,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> Identifier<T>
 where
     T: Clone + Hash + Eq,
@@ -19,14 +28,14 @@ where
             original_to_new: map,
             new_to_original: Vec::new(),
         };
-        return id;
+        id
     }
 
     pub fn identify(
         &mut self,
         original: T,
     ) -> usize {
-        return match self.original_to_new.get(&original) {
+        match self.original_to_new.get(&original) {
             Some(id) => *id,
             None => {
                 let new_id: usize = self.new_to_original.len();
@@ -34,11 +43,11 @@ where
                 self.new_to_original.push(original);
                 new_id
             }
-        };
+        }
     }
 
     pub fn identity_map(&self) -> Vec<T> {
-        return self.new_to_original.clone();
+        self.new_to_original.clone()
     }
 
     pub fn clear(&mut self) {
@@ -53,6 +62,6 @@ where
         self.original_to_new.clear();
         self.new_to_original.clear();
 
-        return (id_to_label, label_to_id);
+        (id_to_label, label_to_id)
     }
 }

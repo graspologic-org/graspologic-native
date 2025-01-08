@@ -23,10 +23,10 @@ pub struct FullNetworkWorkQueue {
 impl FullNetworkWorkQueue {
     #[allow(dead_code)]
     pub fn new() -> FullNetworkWorkQueue {
-        return FullNetworkWorkQueue {
+        FullNetworkWorkQueue {
             work_queue: VecDeque::new(),
             stable: Vec::new(),
-        };
+        }
     }
 
     /// Generates a random order from [0..len) in the work queue, and initializes the stability
@@ -39,11 +39,11 @@ impl FullNetworkWorkQueue {
     /// > This avoids reallocating where possible, but the conditions for that are strict, and subject
     /// > to change, and so shouldn't be relied upon unless the Vec<T> came from From<VecDeque<T>>
     /// > and hasn't been reallocated.
-    /// However, creation of this item is called infrequently, and our worst case scenario is 2 O(n)s
-    /// instead of 1 O(n). We'll use the speed boost now, but this may be worth looking into for
-    /// speed sake periodically to verify that the actual current Rust impl of the `From` trait for
-    /// Vec<T> to VecDeque<T> hasn't changed the implementation.  As of the time of writing this,
-    /// the place to check is https://doc.rust-lang.org/src/alloc/collections/vec_deque.rs.html#2742-2772
+    /// > However, creation of this item is called infrequently, and our worst case scenario is 2 O(n)s
+    /// > instead of 1 O(n). We'll use the speed boost now, but this may be worth looking into for
+    /// > speed sake periodically to verify that the actual current Rust impl of the `From` trait for
+    /// > Vec<T> to VecDeque<T> hasn't changed the implementation.  As of the time of writing this,
+    /// > the place to check is https://doc.rust-lang.org/src/alloc/collections/vec_deque.rs.html#2742-2772
     pub fn items_in_random_order<T>(
         len: usize,
         rng: &mut T,
@@ -59,12 +59,10 @@ impl FullNetworkWorkQueue {
         for i in 0..len {
             stable.push(false);
             let random_index: usize = rng.gen_range(0..len);
-            let old_value: usize = permutation[i];
-            permutation[i] = permutation[random_index];
-            permutation[random_index] = old_value;
+            permutation.swap(i, random_index);
         }
         let work_queue: VecDeque<usize> = VecDeque::from(permutation);
-        return FullNetworkWorkQueue { work_queue, stable };
+        FullNetworkWorkQueue { work_queue, stable }
     }
 
     /// Presuming the work queue contains a value, pops it from that queue, marks the node as stable,
@@ -73,7 +71,7 @@ impl FullNetworkWorkQueue {
     pub fn pop_front(&mut self) -> Result<usize, CoreError> {
         let front: usize = self.work_queue.pop_front().ok_or(CoreError::QueueError)?;
         self.stable[front] = true;
-        return Ok(front);
+        Ok(front)
     }
 
     /// If the item to be added to the work queue is not already on it, add it to the queue
@@ -95,12 +93,12 @@ impl FullNetworkWorkQueue {
     }
 
     pub fn is_empty(&self) -> bool {
-        return self.work_queue.is_empty();
+        self.work_queue.is_empty()
     }
 
     #[allow(dead_code)]
     pub fn len(&self) -> usize {
-        return self.work_queue.len();
+        self.work_queue.len()
     }
 }
 

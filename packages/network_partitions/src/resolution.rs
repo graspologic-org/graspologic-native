@@ -20,7 +20,7 @@ pub fn adjust_resolution(
     use_modularity: bool,
 ) -> f64 {
     let resolution: f64 = resolution.unwrap_or(DEFAULT_RESOLUTION);
-    return if use_modularity {
+    if use_modularity {
         // Note: this is adjusted from the version @
         // https://github.com/CWTSLeiden/networkanalysis/blob/master/src/cwts/networkanalysis/run/RunNetworkClustering.java#L331
         // which seems to be a bug since this resolution factor when used for modularity is
@@ -29,5 +29,5 @@ pub fn adjust_resolution(
             / (2_f64 * (network.total_edge_weight() + network.total_self_links_edge_weight()))
     } else {
         resolution
-    };
+    }
 }
