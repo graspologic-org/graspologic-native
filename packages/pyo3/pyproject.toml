@@ -3,13 +3,11 @@ name = "graspologic-native"
 maintainer = "Dax Pryce"
 maintainer-email = "daxpryce@microsoft.com"
 dynamic = ["version"]
-requires-python = ">=3.6,<3.14"
+requires-python = ">=3.8,<3.14"
 classifier = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
