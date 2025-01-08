@@ -8,11 +8,7 @@ mod mediator;
 
 use std::collections::{HashMap, HashSet};
 
-use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::{create_exception, wrap_pyfunction, wrap_pymodule, PyObjectProtocol};
-
-use pyo3::types::{PyDict, PyInt, PyList, PyString, PyTuple};
 
 use network_partitions::clustering::Clustering;
 use network_partitions::errors::CoreError;
@@ -60,17 +56,6 @@ impl HierarchicalCluster {
     }
 }
 
-#[pyfunction(
-    "/",
-    resolution = "1.0",
-    randomness = "0.001",
-    iterations = "1",
-    use_modularity = "true",
-    trials = "1"
-)]
-#[pyo3(
-    text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, seed, trials)"
-)]
 /// Leiden is a global network partitioning algorithm. Given a list of edges and a maximization
 /// function, it will iterate through the network attempting to find an optimal partitioning of
 /// the entire network.
@@ -107,6 +92,8 @@ impl HierarchicalCluster {
 /// :raises InternalNetworkIndexingError: An internal algorithm error. Please report with reproduction steps.
 /// :raises ParameterRangeError: One of the parameters provided did not meet the requirements in the documentation.
 /// :raises UnsafeInducementError: An internal algorithm error. Please report with reproduction steps.
+#[pyfunction]
+#[pyo3(signature=(edges, /, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, seed=None, trials=1))]
 fn leiden(
     py: Python,
     edges: Vec<Edge>,
@@ -141,17 +128,6 @@ fn leiden(
     return result.map_err(|err| PyErr::from(err));
 }
 
-#[pyfunction(
-    "/",
-    resolution = "1.0",
-    randomness = "0.001",
-    iterations = "1",
-    use_modularity = "true",
-    max_cluster_size = "1000"
-)]
-#[pyo3(
-    text_signature = "(edges, /, starting_communities, resolution, randomness, iterations, use_modularity, max_cluster_size, seed)"
-)]
 /// Hierarchical leiden builds upon the leiden function by further breaking down exceptionally large clusters.
 ///
 /// The process followed is to run leiden the first time, then each cluster with membership
@@ -201,6 +177,8 @@ fn leiden(
 /// :raises InternalNetworkIndexingError: An internal algorithm error. Please report with reproduction steps.
 /// :raises ParameterRangeError: One of the parameters provided did not meet the requirements in the documentation.
 /// :raises UnsafeInducementError: An internal algorithm error. Please report with reproduction steps.
+#[pyfunction]
+#[pyo3(signature=(edges, /, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, max_cluster_size=1000, seed=None))]
 fn hierarchical_leiden(
     py: Python,
     edges: Vec<Edge>,
@@ -234,8 +212,6 @@ fn hierarchical_leiden(
     return result.map_err(|err| PyErr::from(err));
 }
 
-#[pyfunction("/", resolution = "1.0")]
-#[pyo3(text_signature = "(edges, communities, /, resolution)")]
 /// Measures the modularity for a global partitioning of a network described by a list of edges.
 ///
 /// :param edges: A list of edges, defined with the source and target encoded as strings and the edge weight being a float.
@@ -243,12 +219,14 @@ fn hierarchical_leiden(
 /// :param communities: An optional initial mapping of nodes to their community. Note that
 ///     this function does require that all nodes in the edge list have a community and nodes in the
 ///     community dictionary exist as a node in the provided edge list. The community values must
-///     also be a non negative number.
+///     also be a non-negative number.
 /// :type communities: Dict[str, int]
 /// :param float resolution: Default is `1.0`. Higher resolution values lead to more communities and
 ///     lower resolution values leads to fewer communities. Must be greater than 0.
 /// :return: The modularity of the community partitioning provided for the network.
 /// :rtype: float
+#[pyfunction]
+#[pyo3(signature=(edges, communities, /, resolution=1.0))]
 fn modularity(
     py: Python,
     edges: Vec<Edge>,
@@ -264,10 +242,7 @@ fn modularity(
 /// graspologic_native currently supports global network partitioning via the Leiden University
 /// algorithm described by https://arxiv.org/abs/1810.08473
 #[pymodule]
-fn graspologic_native(
-    py: Python,
-    module: &PyModule,
-) -> PyResult<()> {
+fn graspologic_native(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<HierarchicalCluster>()?;
     module.add_wrapped(wrap_pyfunction!(leiden))?;
     module.add_wrapped(wrap_pyfunction!(hierarchical_leiden))?;
