@@ -71,7 +71,7 @@ dev = [
 [package.metadata.requires-dev]
 dev = [
     { name = "ipython", specifier = ">=8.12.3" },
-    { name = "networkx", specifier = "==3" },
+    { name = "networkx", specifier = ">=3,<4" },
 ]
 
 [[package]]

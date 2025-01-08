@@ -17,8 +17,8 @@ classifier = [
     "Topic :: Scientific/Engineering :: Mathematics"]
 
 [project.urls]
-Github = "https://github.com/microsoft/graspologic-native"
-Graspologic = "https://github.com/microsoft/graspologic"
+Github = "https://github.com/graspologic-org/graspologic-native"
+Graspologic = "https://github.com/graspologic-org/graspologic"
 
 [build-system]
 requires = ["maturin>=1.4,<2.0"]
@@ -27,5 +27,5 @@ build-backend = "maturin"
 [tool.uv]
 dev-dependencies = [
     "ipython>=8.12.3",
-    "networkx==3",
+    "networkx>=3,<4",
 ]
