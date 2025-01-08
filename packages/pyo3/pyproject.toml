@@ -1,10 +1,14 @@
 [project]
 name = "graspologic-native"
-maintainer = "Dax Pryce"
-maintainer-email = "daxpryce@microsoft.com"
+authors = [
+    {name = "Dax Pryce", email = "daxpryce@microsoft.com"}
+]
+maintainers = [
+    {name = "Dax Pryce", email = "daxpryce@microsoft.com"}
+]
 dynamic = ["version"]
 requires-python = ">=3.8,<3.14"
-classifier = [
+classifiers = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: Implementation :: CPython",
