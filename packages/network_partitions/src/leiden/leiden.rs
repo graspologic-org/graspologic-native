@@ -8,9 +8,7 @@ use rand::Rng;
 
 use crate::clustering::{ClusterItem, Clustering};
 use crate::errors::CoreError;
-use crate::log;
 use crate::network::prelude::*;
-use crate::progress_meter;
 use crate::resolution::adjust_resolution;
 
 use super::full_network_clustering;
@@ -87,15 +85,6 @@ where
 
     let mut improved: bool = false;
 
-    log!(
-        "Running Leiden with the maximization function {} for {} iterations over a network with {} nodes and {} edges with a total edge weight of {} and total node weight of {}",
-        if use_modularity { "modularity" } else { "cpm" },
-        iterations,
-        &network.num_nodes(),
-        &network.num_edges(),
-        &network.total_edge_weight(),
-        &network.total_node_weight(),
-    );
     for _i in 0..iterations {
         improved |= improve_clustering(
             network,
@@ -130,12 +119,6 @@ where
         rng,
     )?;
 
-    log!(
-        "Full network clustering completed, determined there should be {} clusters for {} nodes",
-        &clustering.next_cluster_id(),
-        &clustering.num_nodes()
-    );
-
     if clustering.next_cluster_id() < network.num_nodes().clone() {
         // given the updated clustering, generate subnetworks for each cluster comprised solely of the
         // nodes in that cluster, then fast, low-fidelity cluster the subnetworks, merging the results
@@ -155,7 +138,6 @@ where
             SubnetworkClusteringGenerator::with_capacity(max_subnetwork_size as usize);
 
         for item in subnetworks_iterator {
-            progress_meter!("{}% complete", item.id, num_subnetworks);
             if num_nodes_per_cluster[item.id] == 1 && item.subnetwork.num_nodes() == 0 {
                 // this is a singleton cluster, and cannot move from what it previously was.
                 // the subnetwork actually has no information about the nodes in it, because we don't
@@ -191,14 +173,6 @@ where
         let mut induced_network_clustering = initial_clustering_for_induced(
             num_nodes_per_cluster_induced_network,
             induced_clustering_network.num_nodes(),
-        );
-
-        log!(
-            "Induced network with {} nodes and {} edges with a total edge weight of {} and total node weight of {}",
-            &induced_clustering_network.num_nodes(),
-            &induced_clustering_network.num_edges(),
-            &induced_clustering_network.total_edge_weight(),
-            &induced_clustering_network.total_node_weight(),
         );
 
         improved |= improve_clustering(

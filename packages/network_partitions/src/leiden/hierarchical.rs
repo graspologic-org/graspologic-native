@@ -3,7 +3,6 @@ use rand::Rng;
 use super::leiden::leiden;
 use crate::clustering::{ClusterItem, Clustering};
 use crate::errors::CoreError;
-use crate::log;
 use crate::network::prelude::*;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -140,8 +139,6 @@ where
         use_modularity,
     )?;
 
-    log!("First clustering completed.");
-
     let mut hierarchical_clustering: HierarchicalClustering =
         HierarchicalClustering::new(&updated_clustering);
     let mut work_queue: VecDeque<HierarchicalWork> = VecDeque::new();
@@ -156,11 +153,6 @@ where
         max_cluster_size,
         use_modularity,
     ) {
-        log!(
-            "Cluster {} contains more than {} values and will be added to the work queue",
-            subnetwork.id,
-            max_cluster_size
-        );
         work_queue.push_back(HierarchicalWork {
             subnetwork: subnetwork.subnetwork,
             parent_cluster: subnetwork.id,
@@ -184,10 +176,6 @@ where
         if subnetwork_clustering.next_cluster_id() == 1 {
             // we couldn't break this cluster down any further.
             clusters_that_did_not_split.insert(work_item.parent_cluster);
-            log!(
-                "Cluster {} did not split so we will not re-process it.",
-                work_item.parent_cluster
-            );
         } else {
             hierarchical_clustering.insert_subnetwork_clustering(
                 &subnetwork,
@@ -204,7 +192,6 @@ where
         }
 
         if work_queue.is_empty() {
-            log!("Level {} complete, seeking any other clusters larger than {} size for further refinement", level, max_cluster_size);
             level += 1;
             let nodes_by_cluster: Vec<Vec<CompactNodeId>> = updated_clustering.nodes_per_cluster();
             for subnetwork in network.subnetworks_iter(
@@ -225,10 +212,5 @@ where
             }
         }
     }
-    log!(
-        "Unable to break down {} clusters, {:?}",
-        clusters_that_did_not_split.len(),
-        clusters_that_did_not_split
-    );
     return Ok(hierarchical_clustering.hierarchical_clusterings);
 }

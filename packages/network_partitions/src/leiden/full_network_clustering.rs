@@ -6,9 +6,7 @@ use super::quality_value_increment;
 use crate::clustering::Clustering;
 use crate::errors::CoreError;
 use crate::leiden::neighboring_clusters::NeighboringClusters;
-use crate::log;
 use crate::network::prelude::*;
-use crate::progress_meter;
 use rand::Rng;
 
 pub fn full_network_clustering<T>(
@@ -20,13 +18,6 @@ pub fn full_network_clustering<T>(
 where
     T: Rng,
 {
-    log!(
-        "Full network clustering starting for provided network with {} nodes and {} edges and an initial clustering with a max cluster id of {}",
-         network.num_nodes(),
-         network.num_edges(),
-         clustering.next_cluster_id()
-    );
-
     if network.num_nodes() <= 1 {
         return Ok(false);
     }
@@ -46,12 +37,6 @@ where
         NeighboringClusters::with_capacity(network.num_nodes());
 
     while !work_queue.is_empty() {
-        progress_meter!(
-            "{}% complete (may repeat as nodes are marked unstable)",
-            network.num_nodes() - work_queue.len(),
-            network.num_nodes()
-        );
-
         let current_node: usize = work_queue.pop_front()?;
         let current_cluster: usize = clustering.cluster_at(current_node)?;
         let current_node_weight: f64 = network.node_weight(current_node);

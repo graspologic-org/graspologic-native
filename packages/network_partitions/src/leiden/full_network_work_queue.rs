@@ -2,7 +2,6 @@
 // Licensed under the MIT license.
 
 use crate::errors::CoreError;
-use crate::log;
 use std::collections::VecDeque;
 
 use rand::Rng;
@@ -87,7 +86,6 @@ impl FullNetworkWorkQueue {
         if self.stable.len() <= item {
             // increase the size to at least include item+1, and set all of the values to be stable
             // this shouldn't be happening, and if it is, I need to know about it
-            log!("We had to resize the FullNetworkWorkQueue's stability array from {} to {}. This is unexpected.", self.stable.len(), item+1);
             self.stable.resize(item + 1, true);
         }
         if self.stable[item] {

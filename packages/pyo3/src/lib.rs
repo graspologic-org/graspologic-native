@@ -12,7 +12,6 @@ use pyo3::prelude::*;
 
 use network_partitions::clustering::Clustering;
 use network_partitions::errors::CoreError;
-use network_partitions::log;
 use network_partitions::network::prelude::*;
 use network_partitions::quality;
 
@@ -105,13 +104,6 @@ fn leiden(
     seed: Option<u64>,
     trials: u64,
 ) -> PyResult<(f64, HashMap<String, usize>)> {
-    #[cfg(feature = "logging")]
-    use std::time::Instant;
-    #[cfg(feature = "logging")]
-    let now: Instant = Instant::now();
-
-    log!("pyo3 converted {} edges from Python's representation to a Vec<(String, String, f64)> representation at {:?}", edges.len(), now);
-
     let result: Result<(f64, HashMap<String, usize>), PyLeidenError> =
         py.allow_threads(move || {
             mediator::leiden(
@@ -190,13 +182,6 @@ fn hierarchical_leiden(
     max_cluster_size: u32,
     seed: Option<u64>,
 ) -> PyResult<Vec<HierarchicalCluster>> {
-    #[cfg(feature = "logging")]
-    use std::time::Instant;
-    #[cfg(feature = "logging")]
-    let now: Instant = Instant::now();
-
-    log!("pyo3 converted {} edges from Python's representation to a Vec<(String, String, f64)> representation at {:?}", edges.len(), now);
-
     let result: Result<Vec<HierarchicalCluster>, PyLeidenError> = py.allow_threads(move || {
         mediator::hierarchical_leiden(
             edges,
