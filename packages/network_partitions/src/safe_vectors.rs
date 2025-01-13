@@ -26,14 +26,14 @@ impl<T: Clone> SafeVectors<T> for Vec<T> {
         &self,
         index: usize,
     ) -> bool {
-        return index < self.len();
+        index < self.len()
     }
 
     fn is_valid_range(
         &self,
         index: usize,
     ) -> bool {
-        return index <= self.len();
+        index <= self.len()
     }
 
     fn get_or_err(
@@ -41,6 +41,6 @@ impl<T: Clone> SafeVectors<T> for Vec<T> {
         index: usize,
         err: CoreError,
     ) -> Result<T, CoreError> {
-        return self.get(index).cloned().ok_or(err);
+        self.get(index).cloned().ok_or(err)
     }
 }

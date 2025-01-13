@@ -1,26 +1,35 @@
 [project]
 name = "graspologic-native"
-maintainer = "Dax Pryce"
-maintainer-email = "daxpryce@microsoft.com"
-requires-python = ">=3.6,<3.13"
-classifier = [
+authors = [
+    {name = "Dax Pryce", email = "daxpryce@microsoft.com"}
+]
+maintainers = [
+    {name = "Dax Pryce", email = "daxpryce@microsoft.com"}
+]
+dynamic = ["version"]
+requires-python = ">=3.8,<3.14"
+classifiers = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Mathematics"]
 
 [project.urls]
-Github = "https://github.com/microsoft/graspologic-native"
-Graspologic = "https://github.com/microsoft/graspologic"
-
+Github = "https://github.com/graspologic-org/graspologic-native"
+Graspologic = "https://github.com/graspologic-org/graspologic"
 
 [build-system]
 requires = ["maturin>=1.4,<2.0"]
 build-backend = "maturin"
+
+[tool.uv]
+dev-dependencies = [
+    "ipython>=8.12.3",
+    "networkx>=3,<4",
+]

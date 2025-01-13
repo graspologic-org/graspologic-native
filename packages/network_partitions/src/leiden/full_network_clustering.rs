@@ -6,9 +6,7 @@ use super::quality_value_increment;
 use crate::clustering::Clustering;
 use crate::errors::CoreError;
 use crate::leiden::neighboring_clusters::NeighboringClusters;
-use crate::log;
 use crate::network::prelude::*;
-use crate::progress_meter;
 use rand::Rng;
 
 pub fn full_network_clustering<T>(
@@ -20,13 +18,6 @@ pub fn full_network_clustering<T>(
 where
     T: Rng,
 {
-    log!(
-        "Full network clustering starting for provided network with {} nodes and {} edges and an initial clustering with a max cluster id of {}",
-         network.num_nodes(),
-         network.num_edges(),
-         clustering.next_cluster_id()
-    );
-
     if network.num_nodes() <= 1 {
         return Ok(false);
     }
@@ -46,12 +37,6 @@ where
         NeighboringClusters::with_capacity(network.num_nodes());
 
     while !work_queue.is_empty() {
-        progress_meter!(
-            "{}% complete (may repeat as nodes are marked unstable)",
-            network.num_nodes() - work_queue.len(),
-            network.num_nodes()
-        );
-
         let current_node: usize = work_queue.pop_front()?;
         let current_cluster: usize = clustering.cluster_at(current_node)?;
         let current_node_weight: f64 = network.node_weight(current_node);
@@ -77,7 +62,7 @@ where
             current_node,
             current_cluster,
             &mut neighboring_clusters,
-            &mut unused_clusters,
+            &unused_clusters,
             num_unused_clusters,
         )?;
 
@@ -130,7 +115,7 @@ where
     if improved {
         clustering.remove_empty_clusters();
     }
-    return Ok(improved);
+    Ok(improved)
 }
 
 fn weights_and_counts_per_cluster(
@@ -145,12 +130,12 @@ fn weights_and_counts_per_cluster(
         cluster_weights[cluster_id] += compact_node.weight;
         num_nodes_per_cluster[cluster_id] += 1;
     }
-    return Ok((cluster_weights, num_nodes_per_cluster));
+    Ok((cluster_weights, num_nodes_per_cluster))
 }
 
 fn unused_clusters(
     network: &CompactNetwork,
-    num_nodes_per_cluster: &Vec<usize>,
+    num_nodes_per_cluster: &[usize],
 ) -> (Vec<usize>, usize) {
     let size: usize = network.num_nodes() - 1;
     let mut unused_clusters: Vec<usize> = vec![0; size];
@@ -161,26 +146,26 @@ fn unused_clusters(
             num_unused_clusters += 1;
         }
     }
-    return (unused_clusters, num_unused_clusters);
+    (unused_clusters, num_unused_clusters)
 }
 
 fn leave_current_cluster(
     cluster: usize,
     node_weight: f64,
-    cluster_weights: &mut Vec<f64>,
-    num_nodes_per_cluster: &mut Vec<usize>,
-    unused_clusters: &mut Vec<usize>,
+    cluster_weights: &mut [f64],
+    num_nodes_per_cluster: &mut [usize],
+    unused_clusters: &mut [usize],
     num_unused_clusters: usize,
 ) -> usize {
     cluster_weights[cluster] -= node_weight;
     num_nodes_per_cluster[cluster] -= 1;
 
-    return if num_nodes_per_cluster[cluster] == 0 {
+    if num_nodes_per_cluster[cluster] == 0 {
         unused_clusters[num_unused_clusters] = cluster;
         num_unused_clusters + 1
     } else {
         num_unused_clusters
-    };
+    }
 }
 
 fn identify_neighboring_clusters(
@@ -189,7 +174,7 @@ fn identify_neighboring_clusters(
     current_node: usize,
     current_cluster: usize,
     neighboring_clusters: &mut NeighboringClusters,
-    unused_clusters: &Vec<usize>,
+    unused_clusters: &[usize],
     num_unused_clusters: usize,
 ) -> Result<(), CoreError> {
     neighboring_clusters.reset_for_current_cluster(current_cluster);
@@ -201,7 +186,7 @@ fn identify_neighboring_clusters(
         neighboring_clusters.increase_cluster_weight(neighbor_cluster, neighbor.edge_weight);
     }
     neighboring_clusters.freeze();
-    return Ok(());
+    Ok(())
 }
 
 fn best_cluster_for(
@@ -209,7 +194,7 @@ fn best_cluster_for(
     current_node_weight: f64,
     adjusted_resolution: f64,
     neighboring_clusters: &NeighboringClusters,
-    cluster_weights: &Vec<f64>,
+    cluster_weights: &[f64],
 ) -> usize {
     let mut best_cluster: usize = current_cluster;
     let mut max_quality_value_increment: f64 = quality_value_increment::calculate(
@@ -232,14 +217,14 @@ fn best_cluster_for(
             max_quality_value_increment = quality_value_increment;
         }
     }
-    return best_cluster;
+    best_cluster
 }
 
 fn join_cluster(
     cluster: usize,
     node_weight: f64,
-    cluster_weights: &mut Vec<f64>,
-    num_nodes_per_cluster: &mut Vec<usize>,
+    cluster_weights: &mut [f64],
+    num_nodes_per_cluster: &mut [usize],
     num_unused_clusters: &mut usize,
     last_unused_cluster: usize,
 ) {
@@ -263,7 +248,7 @@ fn trigger_cluster_change(
             work_queue.push_back(neighbor.id);
         }
     }
-    return Ok(());
+    Ok(())
 }
 
 #[cfg(test)]

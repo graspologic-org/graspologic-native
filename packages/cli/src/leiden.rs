@@ -75,9 +75,9 @@ pub fn leiden(
             let mut output_file: File =
                 File::create(output_path).expect("Unable to open output file for writing");
             for item in &clustering {
-                write!(
+                writeln!(
                     output_file,
-                    "{},{}\n",
+                    "{},{}",
                     labeled_network.label_for(item.node_id),
                     item.cluster
                 )

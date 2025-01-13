@@ -1,3 +1,2 @@
-fn_args_layout = "vertical"
-empty_item_single_line = false
+fn_params_layout = "vertical"
 

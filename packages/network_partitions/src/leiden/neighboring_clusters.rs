@@ -11,26 +11,23 @@ pub struct NeighboringClusters {
 
 impl NeighboringClusters {
     pub fn with_capacity(length: usize) -> NeighboringClusters {
-        return NeighboringClusters {
+        NeighboringClusters {
             neighboring_clusters: Vec::with_capacity(length + 1),
             neighbor_edge_weights_within_cluster: vec![f64::NAN; length + 1],
             current_cluster: None,
-        };
+        }
     }
 
     pub fn reset_for_current_cluster(
         &mut self,
         current_cluster: usize,
     ) {
-        match self.current_cluster {
-            Some(current_cluster) => {
-                self.neighbor_edge_weights_within_cluster[current_cluster] = f64::NAN;
-                for cluster in &self.neighboring_clusters {
-                    self.neighbor_edge_weights_within_cluster[*cluster] = f64::NAN;
-                }
-                self.neighboring_clusters.clear();
+        if let Some(current_cluster) = self.current_cluster {
+            self.neighbor_edge_weights_within_cluster[current_cluster] = f64::NAN;
+            for cluster in &self.neighboring_clusters {
+                self.neighbor_edge_weights_within_cluster[*cluster] = f64::NAN;
             }
-            None => {}
+            self.neighboring_clusters.clear();
         }
         self.current_cluster = Some(current_cluster);
     }
@@ -50,13 +47,10 @@ impl NeighboringClusters {
 
     pub fn freeze(&mut self) {
         // only set the weight for the current cluster if no other neighbors belong to it.
-        match self.current_cluster {
-            Some(current_cluster) => {
-                if self.neighbor_edge_weights_within_cluster[current_cluster].is_nan() {
-                    self.neighbor_edge_weights_within_cluster[current_cluster] = 0_f64;
-                }
+        if let Some(current_cluster) = self.current_cluster {
+            if self.neighbor_edge_weights_within_cluster[current_cluster].is_nan() {
+                self.neighbor_edge_weights_within_cluster[current_cluster] = 0_f64;
             }
-            None => {}
         }
     }
 
@@ -64,10 +58,10 @@ impl NeighboringClusters {
         &self,
         cluster: usize,
     ) -> f64 {
-        return self.neighbor_edge_weights_within_cluster[cluster];
+        self.neighbor_edge_weights_within_cluster[cluster]
     }
 
     pub fn iter(&self) -> Iter<usize> {
-        return self.neighboring_clusters.iter();
+        self.neighboring_clusters.iter()
     }
 }

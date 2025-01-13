@@ -35,5 +35,5 @@ pub fn quality(
 
     quality /= 2_f64 * network.total_edge_weight() + network.total_self_links_edge_weight();
 
-    return Ok(quality);
+    Ok(quality)
 }

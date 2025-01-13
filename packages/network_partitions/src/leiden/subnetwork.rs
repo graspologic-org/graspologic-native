@@ -31,13 +31,13 @@ impl SubnetworkClusteringGenerator {
         let neighboring_cluster_edge_weights: Vec<f64> = Vec::with_capacity(capacity);
         let singleton_clusters: Vec<bool> = Vec::with_capacity(capacity);
         let summed_qvi_records: Vec<f64> = Vec::with_capacity(capacity);
-        return SubnetworkClusteringGenerator {
+        SubnetworkClusteringGenerator {
             node_processing_order,
             neighboring_clusters,
             neighboring_cluster_edge_weights,
             singleton_clusters,
             summed_qvi_records,
-        };
+        }
     }
 
     pub fn subnetwork_clustering<T>(
@@ -104,7 +104,7 @@ impl SubnetworkClusteringGenerator {
                 let chosen_cluster: usize = best_cluster_for_node(
                     node,
                     subnetwork.node(node).weight,
-                    &neighboring_clusters,
+                    neighboring_clusters,
                     neighboring_cluster_edge_weights,
                     &cluster_weights,
                     &external_edge_weight_per_cluster,
@@ -138,7 +138,7 @@ impl SubnetworkClusteringGenerator {
         if improved {
             clustering.remove_empty_clusters();
         }
-        return Ok(clustering);
+        Ok(clustering)
     }
 
     fn subnetwork_reset<T>(
@@ -163,30 +163,27 @@ impl SubnetworkClusteringGenerator {
 
         for i in 0..length {
             let random_index: usize = rng.gen_range(0..length);
-            let old_value: usize = self.node_processing_order[i];
-            self.node_processing_order[i] = self.node_processing_order[random_index];
-            self.node_processing_order[random_index] = old_value;
+            self.node_processing_order.swap(i, random_index);
         }
     }
 }
 
 fn node_can_move(
     node: usize,
-    cluster_weights: &Vec<f64>,
-    external_edge_weight_per_cluster: &Vec<f64>,
+    cluster_weights: &[f64],
+    external_edge_weight_per_cluster: &[f64],
     total_node_weight: f64,
-    singleton_clusters: &Vec<bool>,
+    singleton_clusters: &[bool],
     adjusted_resolution: f64,
 ) -> bool {
     let connectivity_threshold: f64 =
         cluster_weights[node] * (total_node_weight - cluster_weights[node]) * adjusted_resolution;
-    return singleton_clusters[node]
-        && external_edge_weight_per_cluster[node] >= connectivity_threshold;
+    singleton_clusters[node] && external_edge_weight_per_cluster[node] >= connectivity_threshold
 }
 
 fn node_reset(
     neighboring_clusters: &mut Vec<usize>,
-    neighboring_cluster_edge_weights: &mut Vec<f64>,
+    neighboring_cluster_edge_weights: &mut [f64],
     summed_qvi_records: &mut Vec<f64>,
     node: usize,
 ) {
@@ -201,10 +198,10 @@ fn node_reset(
 fn best_cluster_for_node<T>(
     node: usize,
     node_weight: f64,
-    neighboring_clusters: &Vec<usize>,
-    neighboring_cluster_edge_weights: &mut Vec<f64>,
-    cluster_weights: &Vec<f64>,
-    external_edge_weight_per_cluster: &Vec<f64>,
+    neighboring_clusters: &[usize],
+    neighboring_cluster_edge_weights: &mut [f64],
+    cluster_weights: &[f64],
+    external_edge_weight_per_cluster: &[f64],
     total_node_weight: f64,
     summed_qvi_records: &mut Vec<f64>,
     adjusted_resolution: f64,
@@ -258,12 +255,12 @@ where
     } else {
         best_cluster
     };
-    return chosen_cluster;
+    chosen_cluster
 }
 
 /// Approximate the .exp() function, and more importantly, reduce the amount of times we will get infinite return values
 fn approximate_exponent(result: f64) -> f64 {
-    return if result < -256_f64 {
+    if result < -256_f64 {
         0_f64
     } else {
         let mut result = 1_f64 + result / 256_f64;
@@ -276,5 +273,5 @@ fn approximate_exponent(result: f64) -> f64 {
         result *= result;
         result *= result;
         result
-    };
+    }
 }

@@ -202,25 +202,7 @@ impl NetworkBuilder {
         mut self,
         edges: Vec<(String, String, f64)>,
     ) -> NetworkBuilder {
-        #[cfg(feature = "logging")]
-        let mut index: usize = 0;
-        #[cfg(feature = "logging")]
-        let edge_len: usize = edges.len();
-        #[cfg(feature = "logging")]
-        let step: usize = (edge_len as f64 / 10_f64).floor() as usize;
         for (source, target, weight) in edges {
-            #[cfg(feature = "logging")]
-            {
-                // this way of logging is required because we're actually doing some non logging
-                index += 1;
-                if index % step == 0 {
-                    log!(
-                        "Added {} edges of {} total to the network builder",
-                        index,
-                        edge_len
-                    );
-                }
-            }
             self = self.add_edge(source, target, weight);
         }
         return self;
