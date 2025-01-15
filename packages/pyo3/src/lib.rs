@@ -92,7 +92,7 @@ impl HierarchicalCluster {
 /// :raises ParameterRangeError: One of the parameters provided did not meet the requirements in the documentation.
 /// :raises UnsafeInducementError: An internal algorithm error. Please report with reproduction steps.
 #[pyfunction]
-#[pyo3(signature=(edges, /, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, seed=None, trials=1))]
+#[pyo3(signature=(/, edges, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, seed=None, trials=1))]
 fn leiden(
     py: Python,
     edges: Vec<Edge>,
@@ -170,7 +170,7 @@ fn leiden(
 /// :raises ParameterRangeError: One of the parameters provided did not meet the requirements in the documentation.
 /// :raises UnsafeInducementError: An internal algorithm error. Please report with reproduction steps.
 #[pyfunction]
-#[pyo3(signature=(edges, /, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, max_cluster_size=1000, seed=None))]
+#[pyo3(signature=(/, edges, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, max_cluster_size=1000, seed=None))]
 fn hierarchical_leiden(
     py: Python,
     edges: Vec<Edge>,
@@ -211,7 +211,7 @@ fn hierarchical_leiden(
 /// :return: The modularity of the community partitioning provided for the network.
 /// :rtype: float
 #[pyfunction]
-#[pyo3(signature=(edges, communities, /, resolution=1.0))]
+#[pyo3(signature=(/, edges, communities, resolution=1.0))]
 fn modularity(
     py: Python,
     edges: Vec<Edge>,
