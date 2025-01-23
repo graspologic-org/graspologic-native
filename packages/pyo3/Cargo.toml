@@ -1,6 +1,6 @@
 [package]
 name = "graspologic_native"
-version = "1.2.2"
+version = "1.2.3"
 authors = ["daxpryce@microsoft.com"]
 edition = "2018"
 license = "MIT"
