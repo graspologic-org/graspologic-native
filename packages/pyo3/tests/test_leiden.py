@@ -19,7 +19,7 @@ def _get_edges(path):
 class TestLeiden(unittest.TestCase):
     def test_leiden(self):
         edges = _get_edges(sbm_graph)
-        modularity, partitions = gcn.leiden(edges, seed=seed)
+        modularity, partitions = gcn.leiden(edges=edges, seed=seed)
 
     def test_reiterative_leiden(self):
         """
