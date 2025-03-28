@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+        os: ["ubuntu-latest", "windows-latest", "macos-latest", "ubuntu-24.04-arm"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python 3.12
@@ -87,6 +87,16 @@ jobs:
           args: -m packages/pyo3/Cargo.toml --release --sdist
           manylinux: 2014
 
+      - uses: PyO3/maturin-action@v1
+        if: ${{ matrix.os == 'ubuntu-24.04-arm' }}
+        name: Maturin Build for Linux
+        with:
+          maturin-version: 1.4.0
+          command: build
+          target: aarch64
+          args: -m packages/pyo3/Cargo.toml --release --sdist
+          manylinux: 2014
+
       - name: Python Unittests
         run: |
           cd packages/pyo3
@@ -121,6 +131,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: dist-macos-latest
+          path: dist/
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-ubuntu-24.04-arm
           path: dist/
       - name: Generate SHA256 files for each wheel
         run: |
