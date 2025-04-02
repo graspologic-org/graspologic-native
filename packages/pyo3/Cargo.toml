@@ -1,6 +1,6 @@
 [package]
 name = "graspologic_native"
-version = "1.2.4"
+version = "1.2.5"
 authors = ["daxpryce@microsoft.com"]
 edition = "2018"
 license = "MIT"
@@ -17,5 +17,5 @@ rand_xorshift = "0.3"
 network_partitions = { path = "../network_partitions" }
 
 [dependencies.pyo3]
-version = "0.23"
+version = "0.24.1"
 features = ["extension-module", "abi3-py38"]
