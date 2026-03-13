@@ -154,7 +154,7 @@ impl CompactNetwork {
     pub fn node(
         &self,
         id: CompactNodeId,
-    ) -> CompactNodeItem {
+    ) -> CompactNodeItem<'_> {
         let weight: &f64 = &self.nodes[id].0;
         CompactNodeItem {
             id,
@@ -166,7 +166,7 @@ impl CompactNetwork {
     pub fn neighbors_for(
         &self,
         id: CompactNodeId,
-    ) -> NeighborIterator {
+    ) -> NeighborIterator<'_> {
         let neighbor_range: Range<ConnectionId> = self.neighbor_range(id);
         let neighbor_start: ConnectionId = neighbor_range.start;
         NeighborIterator {
