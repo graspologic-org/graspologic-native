@@ -61,7 +61,7 @@ impl NeighboringClusters {
         self.neighbor_edge_weights_within_cluster[cluster]
     }
 
-    pub fn iter(&self) -> Iter<usize> {
+    pub fn iter(&self) -> Iter<'_, usize> {
         self.neighboring_clusters.iter()
     }
 }
