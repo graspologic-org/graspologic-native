@@ -2,7 +2,6 @@
 // Licensed under the MIT license.
 
 use std::collections::{HashMap, HashSet};
-use std::iter;
 
 use rand::Rng;
 
@@ -198,8 +197,10 @@ fn initial_clustering_for_induced(
         num_nodes_per_cluster_induced_network.iter().enumerate()
     {
         // fill num_nodes_per_induced_cluster_index into positions from clusters_induced_network_index to clusters_induced_network_index + num_nodes_per_cluster_reduced_network[num_nodes_per_induced_cluster_index]
-        clusters_induced_network
-            .extend(iter::repeat(num_nodes_per_induced_cluster_index).take(*repetitions));
+        clusters_induced_network.extend(std::iter::repeat_n(
+            num_nodes_per_induced_cluster_index,
+            *repetitions,
+        ));
     }
     let next_cluster_id: usize = match clusters_induced_network.last() {
         Some(largest_cluster) => *largest_cluster + 1,
@@ -274,7 +275,7 @@ mod tests {
             ("g".into(), "c".into(), 3.0),
             ("h".into(), "d".into(), 11.0),
         ];
-        return edges;
+        edges
     }
 
     #[test]
@@ -308,7 +309,7 @@ mod tests {
             .expect("Updating this known cluster for h should work");
         clustering.remove_empty_clusters();
         assert_eq!(clustering[a_compact], clustering[h_compact]);
-        guarantee_clustering_sanity(&compact_network, &mut clustering)
+        guarantee_clustering_sanity(compact_network, &mut clustering)
             .expect("guarantee clustering sanity should not throw an error");
         assert_ne!(clustering[a_compact], clustering[h_compact]);
         let isolate_clusters: Vec<ClusterId> = vec![clustering[a_compact], clustering[h_compact]];

@@ -10,11 +10,11 @@ use network_partitions::network::prelude::*;
 use network_partitions::quality;
 use network_partitions::safe_vectors::SafeVectors;
 
-use super::errors::PyLeidenError;
 use super::HierarchicalCluster;
+use super::errors::PyLeidenError;
 use crate::errors::InvalidCommunityMappingError;
-use rand::{Rng, RngExt, SeedableRng};
 use rand::rngs::SmallRng;
+use rand::{Rng, RngExt, SeedableRng};
 
 pub fn leiden(
     edges: Vec<Edge>,
@@ -179,8 +179,7 @@ fn communities_to_clustering(
 
     for (node, community) in communities {
         let mapping: Option<CompactNodeId> = network.compact_id_for(node);
-        if mapping.is_some() {
-            let compact_node_id: CompactNodeId = mapping.unwrap();
+        if let Some(compact_node_id) = mapping {
             clustering
                 .update_cluster_at(compact_node_id, community)
                 .map_err(|_| PyLeidenError::ClusterIndexingError)?;

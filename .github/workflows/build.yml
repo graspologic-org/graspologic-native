@@ -8,6 +8,9 @@ jobs:
       - name: Check format
         run: |
           cargo fmt -- --check
+      - name: Clippy
+        run: |
+          cargo clippy --all-targets -- -D warnings
   version:
     runs-on: "ubuntu-latest"
     steps:

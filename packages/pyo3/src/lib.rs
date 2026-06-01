@@ -8,8 +8,8 @@ mod mediator;
 
 use std::collections::{HashMap, HashSet};
 
-use pyo3::prelude::*;
 use pyo3::PyTypeInfo;
+use pyo3::prelude::*;
 
 use network_partitions::clustering::Clustering;
 use network_partitions::errors::CoreError;
@@ -43,11 +43,7 @@ impl HierarchicalCluster {
             .unwrap_or("None".into());
         Ok(format!(
             "HierarchicalCluster(node=\"{}\", cluster=\"{}\", level={}, parent_cluster={}, is_final_cluster={})",
-            self.node,
-            self.cluster,
-            self.level,
-            parent,
-            self.is_final_cluster,
+            self.node, self.cluster, self.level, parent, self.is_final_cluster,
         ))
     }
 
@@ -105,19 +101,18 @@ fn leiden(
     seed: Option<u64>,
     trials: u64,
 ) -> PyResult<(f64, HashMap<String, usize>)> {
-    let result: Result<(f64, HashMap<String, usize>), PyLeidenError> =
-        py.detach(move || {
-            mediator::leiden(
-                edges,
-                starting_communities,
-                resolution,
-                randomness,
-                iterations,
-                use_modularity,
-                seed,
-                trials,
-            )
-        });
+    let result: Result<(f64, HashMap<String, usize>), PyLeidenError> = py.detach(move || {
+        mediator::leiden(
+            edges,
+            starting_communities,
+            resolution,
+            randomness,
+            iterations,
+            use_modularity,
+            seed,
+            trials,
+        )
+    });
     result.map_err(PyErr::from)
 }
 

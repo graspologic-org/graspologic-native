@@ -47,10 +47,10 @@ impl NeighboringClusters {
 
     pub fn freeze(&mut self) {
         // only set the weight for the current cluster if no other neighbors belong to it.
-        if let Some(current_cluster) = self.current_cluster {
-            if self.neighbor_edge_weights_within_cluster[current_cluster].is_nan() {
-                self.neighbor_edge_weights_within_cluster[current_cluster] = 0_f64;
-            }
+        if let Some(current_cluster) = self.current_cluster
+            && self.neighbor_edge_weights_within_cluster[current_cluster].is_nan()
+        {
+            self.neighbor_edge_weights_within_cluster[current_cluster] = 0_f64;
         }
     }
 

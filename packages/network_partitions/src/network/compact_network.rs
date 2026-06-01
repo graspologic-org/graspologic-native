@@ -148,7 +148,7 @@ impl CompactNetwork {
         } else {
             self.neighbors.len()
         };
-        return neighbor_start..end_range;
+        neighbor_start..end_range
     }
 
     pub fn node(
@@ -226,7 +226,8 @@ impl CompactNetwork {
     ) -> impl Iterator<Item = CompactSubnetworkItem<CompactNodeId>> + 'a {
         let mut labeled_network_builder: LabeledNetworkBuilder<CompactNodeId> =
             LabeledNetworkBuilder::new();
-        let subnetwork_iterator = nodes_by_cluster
+
+        nodes_by_cluster
             .iter()
             .enumerate()
             .filter(move |(_cluster_id, nodes_in_cluster)| {
@@ -244,8 +245,7 @@ impl CompactNetwork {
                     subnetwork,
                     id: cluster_id,
                 }
-            });
-        subnetwork_iterator
+            })
     }
 
     pub fn induce_clustering_network(
@@ -421,11 +421,7 @@ impl Iterator for SubnetworkIterator<'_, '_> {
                         possibly_valid += 1;
                     }
                 }
-                if found {
-                    Some(possibly_valid)
-                } else {
-                    None
-                }
+                if found { Some(possibly_valid) } else { None }
             }
         };
         match next_valid_position {
@@ -525,7 +521,7 @@ pub mod tests {
             (2, 3_f64),
             (3, 11_f64), // 7
         ];
-        return CompactNetwork::from(nodes, neighbors, self_links);
+        CompactNetwork::from(nodes, neighbors, self_links)
     }
 
     #[test]
