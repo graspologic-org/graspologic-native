@@ -80,6 +80,15 @@ impl HierarchicalCluster {
 /// :param int trials: Default is `1`. Leiden will be run repeatedly, keeping the best clustering
 ///     as per the maximization function. At the end of `repetitions` it will return the best
 ///     clustering.
+/// :param Optional[int] max_outer_iterations: Default is `None`. When set, limits the recursion
+///     depth of the Leiden algorithm's aggregation phase. A value of 1 means no recursive
+///     aggregation is performed (only local moving + refinement on the original network). When
+///     `None` or 0, the algorithm recurses until convergence (default behavior).
+/// :param Optional[int] max_local_moving_iterations: Default is `None`. When set, limits the
+///     number of sweeps through the network during the local moving phase. One sweep processes
+///     each node once. A value of 1 means each node is considered for movement at most once per
+///     local moving call. When `None` or 0, local moving continues until convergence (default
+///     behavior).
 /// :return: The modularity of the best community partitioning and a dictionary of node to community
 ///     ids. The community ids will start at 0 and increment.
 /// :rtype: Tuple[float, Dict[str, int]]
@@ -160,6 +169,15 @@ fn leiden(
 /// :param Optional[int] seed: Default is `None`. If provided, the seed will be used in creating the
 ///     Pseudo-Random Number Generator at a known state, making runs over the same network and
 ///     starting_communities with the same parameters end with the same results.
+/// :param Optional[int] max_outer_iterations: Default is `None`. When set, limits the recursion
+///     depth of the Leiden algorithm's aggregation phase. A value of 1 means no recursive
+///     aggregation is performed (only local moving + refinement on the original network). When
+///     `None` or 0, the algorithm recurses until convergence (default behavior).
+/// :param Optional[int] max_local_moving_iterations: Default is `None`. When set, limits the
+///     number of sweeps through the network during the local moving phase. One sweep processes
+///     each node once. A value of 1 means each node is considered for movement at most once per
+///     local moving call. When `None` or 0, local moving continues until convergence (default
+///     behavior).
 /// :return: A list of HierarchicalCluster entries. A hierarchical cluster contains a node id, the
 ///     cluster id, the level, an optional parent, and whether or not it is the final entry for that
 ///     node.

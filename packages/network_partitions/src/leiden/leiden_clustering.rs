@@ -341,4 +341,288 @@ mod tests {
                 assert!(!isolates.contains(&item.cluster));
             })
     }
+
+    #[test]
+    fn test_max_outer_iterations_zero_preserves_default_behavior() {
+        use rand::SeedableRng;
+        use rand::rngs::SmallRng;
+
+        let edges = edge_list();
+        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
+
+        let mut rng1: SmallRng = SmallRng::seed_from_u64(123);
+        let mut rng2: SmallRng = SmallRng::seed_from_u64(123);
+
+        // max_outer_iterations = None (0 internally) should be identical to not limiting
+        let (_, clustering_none) = leiden(
+            labeled_network.compact(),
+            None,
+            Some(1),
+            None,
+            None,
+            &mut rng1,
+            true,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let (_, clustering_zero) = leiden(
+            labeled_network.compact(),
+            None,
+            Some(1),
+            None,
+            None,
+            &mut rng2,
+            true,
+            Some(0),
+            None,
+        )
+        .unwrap();
+
+        for node_id in 0..labeled_network.num_nodes() {
+            assert_eq!(
+                clustering_none.cluster_at(node_id).unwrap(),
+                clustering_zero.cluster_at(node_id).unwrap(),
+                "Node {} differed between None and Some(0) for max_outer_iterations",
+                node_id
+            );
+        }
+    }
+
+    #[test]
+    fn test_max_outer_iterations_one_prevents_recursion() {
+        use rand::SeedableRng;
+        use rand::rngs::SmallRng;
+
+        // Build a network with enough structure that Leiden would normally recurse
+        // (aggregate and re-run). With max_outer_iterations=1, recursion is blocked.
+        let edges: Vec<Edge> = vec![
+            ("a".into(), "b".into(), 10.0),
+            ("b".into(), "c".into(), 10.0),
+            ("c".into(), "a".into(), 10.0),
+            ("d".into(), "e".into(), 10.0),
+            ("e".into(), "f".into(), 10.0),
+            ("f".into(), "d".into(), 10.0),
+            ("g".into(), "h".into(), 10.0),
+            ("h".into(), "i".into(), 10.0),
+            ("i".into(), "g".into(), 10.0),
+            ("a".into(), "d".into(), 1.0),
+            ("d".into(), "g".into(), 1.0),
+            ("g".into(), "a".into(), 1.0),
+        ];
+
+        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
+
+        let mut rng: SmallRng = SmallRng::seed_from_u64(42);
+
+        let (_, clustering_limited) = leiden(
+            labeled_network.compact(),
+            None,
+            Some(1),
+            None,
+            None,
+            &mut rng,
+            true,
+            Some(1),
+            None,
+        )
+        .unwrap();
+
+        // Should still produce a valid clustering
+        for node_id in 0..labeled_network.num_nodes() {
+            assert!(clustering_limited.cluster_at(node_id).is_ok());
+        }
+
+        // Compare with unlimited recursion
+        let mut rng2: SmallRng = SmallRng::seed_from_u64(42);
+        let (_, clustering_unlimited) = leiden(
+            labeled_network.compact(),
+            None,
+            Some(1),
+            None,
+            None,
+            &mut rng2,
+            true,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Both should produce valid clusterings; limited may have more or equal clusters
+        // since it can't recurse to further aggregate
+        let limited_clusters = clustering_limited.next_cluster_id();
+        let unlimited_clusters = clustering_unlimited.next_cluster_id();
+        assert!(
+            limited_clusters >= unlimited_clusters,
+            "Limited recursion ({}) should have >= clusters than unlimited ({})",
+            limited_clusters,
+            unlimited_clusters
+        );
+    }
+
+    #[test]
+    fn test_max_outer_iterations_higher_values_allow_more_recursion() {
+        use rand::SeedableRng;
+        use rand::rngs::SmallRng;
+
+        // Build a deeper network that benefits from multiple recursion levels
+        let edges: Vec<Edge> = vec![
+            ("a".into(), "b".into(), 10.0),
+            ("b".into(), "c".into(), 10.0),
+            ("c".into(), "a".into(), 10.0),
+            ("d".into(), "e".into(), 10.0),
+            ("e".into(), "f".into(), 10.0),
+            ("f".into(), "d".into(), 10.0),
+            ("g".into(), "h".into(), 10.0),
+            ("h".into(), "i".into(), 10.0),
+            ("i".into(), "g".into(), 10.0),
+            ("j".into(), "k".into(), 10.0),
+            ("k".into(), "l".into(), 10.0),
+            ("l".into(), "j".into(), 10.0),
+            ("a".into(), "d".into(), 1.0),
+            ("d".into(), "g".into(), 1.0),
+            ("g".into(), "j".into(), 1.0),
+            ("j".into(), "a".into(), 1.0),
+        ];
+
+        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
+
+        let mut rng1: SmallRng = SmallRng::seed_from_u64(77);
+        let mut rng2: SmallRng = SmallRng::seed_from_u64(77);
+
+        let (_, clustering_depth1) = leiden(
+            labeled_network.compact(),
+            None,
+            Some(1),
+            None,
+            None,
+            &mut rng1,
+            true,
+            Some(1),
+            None,
+        )
+        .unwrap();
+
+        let (_, clustering_depth5) = leiden(
+            labeled_network.compact(),
+            None,
+            Some(1),
+            None,
+            None,
+            &mut rng2,
+            true,
+            Some(5),
+            None,
+        )
+        .unwrap();
+
+        // depth=5 allows more aggregation, so should have <= clusters than depth=1
+        let depth1_clusters = clustering_depth1.next_cluster_id();
+        let depth5_clusters = clustering_depth5.next_cluster_id();
+        assert!(
+            depth5_clusters <= depth1_clusters,
+            "Deeper recursion ({}) should yield <= clusters than shallow ({})",
+            depth5_clusters,
+            depth1_clusters
+        );
+    }
+
+    #[test]
+    fn test_both_limits_together_produce_valid_clustering() {
+        use rand::SeedableRng;
+        use rand::rngs::SmallRng;
+
+        let edges = edge_list();
+        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
+
+        let mut rng: SmallRng = SmallRng::seed_from_u64(55);
+
+        // Apply both limits simultaneously
+        let (improved, clustering) = leiden(
+            labeled_network.compact(),
+            None,
+            Some(1),
+            None,
+            None,
+            &mut rng,
+            true,
+            Some(2),
+            Some(2),
+        )
+        .unwrap();
+
+        // Should have produced some result (improved or not is fine with limits)
+        let _ = improved;
+
+        // Every node should have a valid cluster
+        for node_id in 0..labeled_network.num_nodes() {
+            assert!(clustering.cluster_at(node_id).is_ok());
+        }
+
+        // Should have at least 1 cluster
+        assert!(
+            clustering.next_cluster_id() >= 1,
+            "Should have at least 1 cluster"
+        );
+    }
+
+    #[test]
+    fn test_max_local_moving_iterations_through_leiden() {
+        use rand::SeedableRng;
+        use rand::rngs::SmallRng;
+
+        let edges = edge_list();
+        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
+
+        let mut rng1: SmallRng = SmallRng::seed_from_u64(200);
+        let mut rng2: SmallRng = SmallRng::seed_from_u64(200);
+
+        // Very limited local moving
+        let (_, clustering_limited) = leiden(
+            labeled_network.compact(),
+            None,
+            Some(1),
+            None,
+            None,
+            &mut rng1,
+            true,
+            None,
+            Some(1),
+        )
+        .unwrap();
+
+        // Unlimited local moving
+        let (_, clustering_unlimited) = leiden(
+            labeled_network.compact(),
+            None,
+            Some(1),
+            None,
+            None,
+            &mut rng2,
+            true,
+            None,
+            Some(0),
+        )
+        .unwrap();
+
+        // Both should produce valid clusterings
+        for node_id in 0..labeled_network.num_nodes() {
+            assert!(clustering_limited.cluster_at(node_id).is_ok());
+            assert!(clustering_unlimited.cluster_at(node_id).is_ok());
+        }
+
+        // Unlimited should converge better (fewer or equal clusters)
+        assert!(
+            clustering_unlimited.next_cluster_id() <= clustering_limited.next_cluster_id(),
+            "Unlimited local moving ({}) should have <= clusters than limited ({})",
+            clustering_unlimited.next_cluster_id(),
+            clustering_limited.next_cluster_id()
+        );
+    }
 }
