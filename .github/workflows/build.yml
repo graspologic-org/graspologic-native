@@ -4,18 +4,21 @@ jobs:
   codestyle-check:
     runs-on: "ubuntu-latest"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Check format
         run: |
           cargo fmt -- --check
+      - name: Clippy
+        run: |
+          cargo clippy --all-targets -- -D warnings
   version:
     runs-on: "ubuntu-latest"
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          python-version: 3.12
+          python-version: "3.14"
       - name: Materialize build number
         run: |
           pip install -U pip
@@ -31,17 +34,49 @@ jobs:
           path: version.txt
   build:
     needs: ['codestyle-check', 'version']
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest", "windows-latest", "macos-latest", "ubuntu-24.04-arm"]
+        include:
+          - runner: ubuntu-latest
+            target: x64
+            manylinux: "2014"
+            args: -m packages/pyo3/Cargo.toml --release --sdist
+            artifact_name: dist-linux-x64
+          - runner: ubuntu-24.04-arm
+            target: aarch64
+            manylinux: "2014"
+            args: -m packages/pyo3/Cargo.toml --release
+            artifact_name: dist-linux-aarch64
+          - runner: ubuntu-latest
+            target: x64
+            manylinux: musllinux_1_2
+            args: -m packages/pyo3/Cargo.toml --release
+            artifact_name: dist-musllinux-x64
+          - runner: ubuntu-24.04-arm
+            target: aarch64
+            manylinux: musllinux_1_2
+            args: -m packages/pyo3/Cargo.toml --release
+            artifact_name: dist-musllinux-aarch64
+          - runner: windows-latest
+            target: x64
+            args: -m packages/pyo3/Cargo.toml --release
+            artifact_name: dist-windows-x64
+          - runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            args: -m packages/pyo3/Cargo.toml --release
+            artifact_name: dist-windows-aarch64
+          - runner: macos-latest
+            target: universal2-apple-darwin
+            args: -m packages/pyo3/Cargo.toml --release
+            artifact_name: dist-macos-universal2
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          python-version: 3.12
+          python-version: "3.14"
       - uses: actions/download-artifact@v4
         with:
           name: cargo-toml
@@ -54,50 +89,25 @@ jobs:
         run: |
           cargo test --manifest-path packages/network_partitions/Cargo.toml
 
-      # the following are the actual maturin build actions. each one is different per OS, so rather than copy/paste
-      # the same steps except for the build, we conditionally do one of the builds depending on the os in question
-      # note that windows and mac don't do sdists, but ubuntu does; this is just because we don't need to repeat
-      # ourselves or overwrite the .tar.gz sdist.
+      - uses: PyO3/maturin-action@v1
+        if: ${{ !startsWith(matrix.runner, 'windows') }}
+        name: Maturin Build
+        with:
+          command: build
+          target: ${{ matrix.target }}
+          args: ${{ matrix.args }}
+          manylinux: ${{ matrix.manylinux || 'auto' }}
 
       - uses: PyO3/maturin-action@v1
-        if: ${{ matrix.os == 'windows-latest' }}
-        name: Maturin Build for Windows
+        if: ${{ startsWith(matrix.runner, 'windows') }}
+        name: Maturin Build (Windows)
         with:
-          maturin-version: 1.4.0
           command: build
-          target: x64
-          args: -m packages/pyo3/Cargo.toml --release -i ${{env.pythonLocation}}\python.exe
-
-      - uses: PyO3/maturin-action@v1
-        if: ${{ matrix.os == 'macos-latest' }}
-        name: Maturin Build for MacOS
-        with:
-          maturin-version: 1.4.0
-          command: build
-          target: universal2-apple-darwin
-          args: -m packages/pyo3/Cargo.toml --release
-
-      - uses: PyO3/maturin-action@v1
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        name: Maturin Build for Linux
-        with:
-          maturin-version: 1.4.0
-          command: build
-          target: x64
-          args: -m packages/pyo3/Cargo.toml --release --sdist
-          manylinux: 2014
-
-      - uses: PyO3/maturin-action@v1
-        if: ${{ matrix.os == 'ubuntu-24.04-arm' }}
-        name: Maturin Build for Linux
-        with:
-          maturin-version: 1.4.0
-          command: build
-          target: aarch64
-          args: -m packages/pyo3/Cargo.toml --release --sdist
-          manylinux: 2014
+          target: ${{ matrix.target }}
+          args: ${{ matrix.args }} -i ${{env.pythonLocation}}\python.exe
 
       - name: Python Unittests
+        if: ${{ !matrix.manylinux || matrix.manylinux != 'musllinux_1_2' }}
         run: |
           cd packages/pyo3
           pip install ../../target/wheels/*.whl
@@ -106,7 +116,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: dist-${{ matrix.os }}
+          name: ${{ matrix.artifact_name }}
           path: |
             target/wheels/*.whl
             target/wheels/*.tar.gz
@@ -114,27 +124,41 @@ jobs:
     runs-on: ubuntu-latest
     needs: 'build'
     if: github.ref=='refs/heads/main' || github.ref=='refs/heads/dev'
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          python-version: 3.12
+          python-version: "3.14"
       - uses: actions/download-artifact@v4
         with:
-          name: dist-ubuntu-latest
+          name: dist-linux-x64
           path: dist/
       - uses: actions/download-artifact@v4
         with:
-          name: dist-windows-latest
+          name: dist-linux-aarch64
           path: dist/
       - uses: actions/download-artifact@v4
         with:
-          name: dist-macos-latest
+          name: dist-musllinux-x64
           path: dist/
       - uses: actions/download-artifact@v4
         with:
-          name: dist-ubuntu-24.04-arm
+          name: dist-musllinux-aarch64
+          path: dist/
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-windows-x64
+          path: dist/
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-windows-aarch64
+          path: dist/
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-macos-universal2
           path: dist/
       - name: Generate SHA256 files for each wheel
         run: |
@@ -160,12 +184,17 @@ jobs:
         run: |
           twine upload dist/*
       - name: Create Github Release
-        uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ env.GRASPOLOGIC_VERSION }}
-          release_name: graspologic-native-${{ env.GRASPOLOGIC_VERSION }}
-          body_path: "checksums.txt"
-          prerelease: github.ref=='refs/heads/dev'
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRERELEASE_FLAG=""
+          if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          gh release create "$GRASPOLOGIC_VERSION" \
+            --title "graspologic-native-${GRASPOLOGIC_VERSION}" \
+            --notes-file checksums.txt \
+            $PRERELEASE_FLAG \
+            dist/*.whl \
+            dist/*.tar.gz
 

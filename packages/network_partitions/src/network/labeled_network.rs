@@ -270,7 +270,7 @@ pub mod tests {
             ("g".into(), "c".into(), 3.0),
             ("h".into(), "d".into(), 11.0),
         ];
-        return edges;
+        edges
     }
 
     fn expected_label_mappings() -> (HashMap<String, usize>, Vec<String>) {
@@ -290,8 +290,8 @@ pub mod tests {
             .enumerate()
             .map(|(index, label)| (label, index))
             .collect();
-        let label_to_id: HashMap<String, usize> = HashMap::from_iter(label_to_id_vec.into_iter());
-        return (label_to_id, label_order);
+        let label_to_id: HashMap<String, usize> = HashMap::from_iter(label_to_id_vec);
+        (label_to_id, label_order)
     }
 
     #[test]

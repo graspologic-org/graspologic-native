@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 /// Generates a Vec of length `length`, initially populated with values from 0..length.
 /// Executes `length` number of swaps based on current position and an index chosen at random
@@ -18,7 +18,7 @@ where
     }
 
     for i in 0..length {
-        let random_index: usize = rng.gen_range(0..length);
+        let random_index: usize = rng.random_range(0..length);
         permutation.swap(i, random_index);
     }
 

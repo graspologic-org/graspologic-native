@@ -10,11 +10,11 @@ use network_partitions::network::prelude::*;
 use network_partitions::quality;
 use network_partitions::safe_vectors::SafeVectors;
 
-use super::errors::PyLeidenError;
 use super::HierarchicalCluster;
+use super::errors::PyLeidenError;
 use crate::errors::InvalidCommunityMappingError;
-use rand::{Rng, SeedableRng};
-use rand_xorshift::XorShiftRng;
+use rand::rngs::SmallRng;
+use rand::{Rng, RngExt, SeedableRng};
 
 pub fn leiden(
     edges: Vec<Edge>,
@@ -37,9 +37,9 @@ pub fn leiden(
         None => None,
     };
 
-    let mut rng: XorShiftRng = match seed {
-        Some(seed) => XorShiftRng::seed_from_u64(seed),
-        None => XorShiftRng::from_entropy(),
+    let mut rng: SmallRng = match seed {
+        Some(seed) => SmallRng::seed_from_u64(seed),
+        None => SmallRng::from_rng(&mut rand::rng()),
     };
 
     let compact_network: &CompactNetwork = labeled_network.compact();
@@ -111,9 +111,9 @@ pub fn hierarchical_leiden(
         )?),
         None => None,
     };
-    let mut rng: XorShiftRng = match seed {
-        Some(seed) => XorShiftRng::seed_from_u64(seed),
-        None => XorShiftRng::from_entropy(),
+    let mut rng: SmallRng = match seed {
+        Some(seed) => SmallRng::seed_from_u64(seed),
+        None => SmallRng::from_rng(&mut rand::rng()),
     };
 
     let compact_network: &CompactNetwork = labeled_network.compact();
@@ -179,8 +179,7 @@ fn communities_to_clustering(
 
     for (node, community) in communities {
         let mapping: Option<CompactNodeId> = network.compact_id_for(node);
-        if mapping.is_some() {
-            let compact_node_id: CompactNodeId = mapping.unwrap();
+        if let Some(compact_node_id) = mapping {
             clustering
                 .update_cluster_at(compact_node_id, community)
                 .map_err(|_| PyLeidenError::ClusterIndexingError)?;
