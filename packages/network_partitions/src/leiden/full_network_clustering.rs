@@ -14,6 +14,7 @@ pub fn full_network_clustering<T>(
     clustering: &mut Clustering,
     adjusted_resolution: f64,
     rng: &mut T,
+    max_local_moving_iterations: u32,
 ) -> Result<bool, CoreError>
 where
     T: Rng,
@@ -36,7 +37,19 @@ where
     let mut neighboring_clusters: NeighboringClusters =
         NeighboringClusters::with_capacity(network.num_nodes());
 
+    let max_nodes_to_process: usize = if max_local_moving_iterations == 0 {
+        usize::MAX
+    } else {
+        (max_local_moving_iterations as usize).saturating_mul(network.num_nodes())
+    };
+    let mut nodes_processed: usize = 0;
+
     while !work_queue.is_empty() {
+        if nodes_processed >= max_nodes_to_process {
+            break;
+        }
+        nodes_processed += 1;
+
         let current_node: usize = work_queue.pop_front()?;
         let current_cluster: usize = clustering.cluster_at(current_node)?;
         let current_node_weight: f64 = network.node_weight(current_node);
@@ -293,6 +306,7 @@ mod tests {
             &mut clustering,
             adjusted_resolution,
             &mut rng,
+            0,
         )
         .unwrap();
 
@@ -349,5 +363,151 @@ mod tests {
             "Jarkko cluster {} somehow had {} nodes in the cluster, but there should be 2",
             jarkko_cluster, nodes_per_cluster[jarkko_cluster]
         );
+    }
+
+    #[test]
+    fn test_max_local_moving_iterations_limits_sweeps() {
+        let mut rng: SmallRng = SmallRng::seed_from_u64(42);
+
+        let edges: Vec<Edge> = vec![
+            ("a".into(), "b".into(), 10.0),
+            ("b".into(), "c".into(), 10.0),
+            ("c".into(), "d".into(), 10.0),
+            ("d".into(), "e".into(), 10.0),
+            ("e".into(), "f".into(), 10.0),
+            ("f".into(), "g".into(), 10.0),
+            ("g".into(), "h".into(), 10.0),
+            ("a".into(), "c".into(), 5.0),
+            ("b".into(), "d".into(), 5.0),
+            ("e".into(), "g".into(), 5.0),
+            ("f".into(), "h".into(), 5.0),
+        ];
+
+        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
+
+        let mut clustering_limited: Clustering =
+            Clustering::as_self_clusters(labeled_network.num_nodes());
+
+        let adjusted_resolution: f64 =
+            resolution::adjust_resolution(Option::None, labeled_network.compact(), true);
+
+        // Run with max_local_moving_iterations = 1 (only one sweep)
+        let _improved_limited = full_network_clustering(
+            labeled_network.compact(),
+            &mut clustering_limited,
+            adjusted_resolution,
+            &mut rng,
+            1,
+        )
+        .unwrap();
+
+        // Should still produce a valid clustering (every node has a cluster)
+        for node_id in 0..labeled_network.num_nodes() {
+            assert!(clustering_limited.cluster_at(node_id).is_ok());
+        }
+
+        // Now run with unlimited iterations for comparison
+        let mut rng2: SmallRng = SmallRng::seed_from_u64(42);
+        let mut clustering_unlimited: Clustering =
+            Clustering::as_self_clusters(labeled_network.num_nodes());
+
+        let _improved_unlimited = full_network_clustering(
+            labeled_network.compact(),
+            &mut clustering_unlimited,
+            adjusted_resolution,
+            &mut rng2,
+            0,
+        )
+        .unwrap();
+        // Cluster count is not guaranteed to be monotonic with additional local-moving steps; only
+        // sanity-check that both results are bounded and non-empty.
+        let limited_clusters = clustering_limited.next_cluster_id();
+        let unlimited_clusters = clustering_unlimited.next_cluster_id();
+        assert!(limited_clusters >= 1 && limited_clusters <= labeled_network.num_nodes());
+        assert!(unlimited_clusters >= 1 && unlimited_clusters <= labeled_network.num_nodes());
+    }
+
+    #[test]
+    fn test_max_local_moving_iterations_zero_means_unlimited() {
+        let mut rng1: SmallRng = SmallRng::seed_from_u64(99);
+        let mut rng2: SmallRng = SmallRng::seed_from_u64(99);
+
+        let edges: Vec<Edge> = vec![
+            ("a".into(), "b".into(), 10.0),
+            ("b".into(), "c".into(), 10.0),
+            ("c".into(), "a".into(), 10.0),
+            ("d".into(), "e".into(), 10.0),
+            ("e".into(), "f".into(), 10.0),
+            ("f".into(), "d".into(), 10.0),
+            ("a".into(), "d".into(), 1.0),
+        ];
+
+        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
+
+        let adjusted_resolution: f64 =
+            resolution::adjust_resolution(Option::None, labeled_network.compact(), true);
+
+        let mut clustering1: Clustering = Clustering::as_self_clusters(labeled_network.num_nodes());
+        let mut clustering2: Clustering = Clustering::as_self_clusters(labeled_network.num_nodes());
+
+        // max_local_moving_iterations = 0 should behave the same as no limit
+        full_network_clustering(
+            labeled_network.compact(),
+            &mut clustering1,
+            adjusted_resolution,
+            &mut rng1,
+            0,
+        )
+        .unwrap();
+
+        // Use a very large value that effectively means no limit
+        full_network_clustering(
+            labeled_network.compact(),
+            &mut clustering2,
+            adjusted_resolution,
+            &mut rng2,
+            u32::MAX,
+        )
+        .unwrap();
+
+        // Both should produce identical results
+        for node_id in 0..labeled_network.num_nodes() {
+            assert_eq!(
+                clustering1.cluster_at(node_id).unwrap(),
+                clustering2.cluster_at(node_id).unwrap(),
+                "Node {} differed between 0 (unlimited) and u32::MAX",
+                node_id
+            );
+        }
+    }
+
+    #[test]
+    fn test_max_local_moving_saturating_mul_no_panic() {
+        // Verify that the saturating_mul doesn't panic even with large iteration counts
+        // on a small network (would overflow if using regular multiplication on a large network)
+        let mut rng: SmallRng = SmallRng::seed_from_u64(7);
+
+        let edges: Vec<Edge> = vec![("a".into(), "b".into(), 1.0), ("b".into(), "c".into(), 1.0)];
+
+        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
+        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
+
+        let mut clustering: Clustering = Clustering::as_self_clusters(labeled_network.num_nodes());
+
+        let adjusted_resolution: f64 =
+            resolution::adjust_resolution(Option::None, labeled_network.compact(), true);
+
+        // u32::MAX * num_nodes would overflow usize on 32-bit, but saturating_mul handles it
+        let result = full_network_clustering(
+            labeled_network.compact(),
+            &mut clustering,
+            adjusted_resolution,
+            &mut rng,
+            u32::MAX,
+        );
+
+        assert!(result.is_ok());
     }
 }

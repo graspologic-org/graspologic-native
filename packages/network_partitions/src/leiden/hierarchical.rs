@@ -125,6 +125,8 @@ pub fn hierarchical_leiden<T>(
     rng: &mut T,
     use_modularity: bool,
     max_cluster_size: u32,
+    max_outer_iterations: Option<u32>,
+    max_local_moving_iterations: Option<u32>,
 ) -> Result<Vec<HierarchicalCluster>, CoreError>
 where
     T: Rng + Clone + Send,
@@ -137,6 +139,8 @@ where
         randomness,
         rng,
         use_modularity,
+        max_outer_iterations,
+        max_local_moving_iterations,
     )?;
 
     let mut hierarchical_clustering: HierarchicalClustering =
@@ -170,6 +174,8 @@ where
             randomness,
             rng,
             use_modularity,
+            max_outer_iterations,
+            max_local_moving_iterations,
         )?;
         let offset: usize = updated_clustering.next_cluster_id();
 
