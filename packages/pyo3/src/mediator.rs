@@ -13,8 +13,8 @@ use network_partitions::safe_vectors::SafeVectors;
 use super::errors::PyLeidenError;
 use super::HierarchicalCluster;
 use crate::errors::InvalidCommunityMappingError;
-use rand::{Rng, SeedableRng};
-use rand_xorshift::XorShiftRng;
+use rand::{Rng, RngExt, SeedableRng};
+use rand::rngs::SmallRng;
 
 pub fn leiden(
     edges: Vec<Edge>,
@@ -37,9 +37,9 @@ pub fn leiden(
         None => None,
     };
 
-    let mut rng: XorShiftRng = match seed {
-        Some(seed) => XorShiftRng::seed_from_u64(seed),
-        None => XorShiftRng::from_entropy(),
+    let mut rng: SmallRng = match seed {
+        Some(seed) => SmallRng::seed_from_u64(seed),
+        None => SmallRng::from_rng(&mut rand::rng()),
     };
 
     let compact_network: &CompactNetwork = labeled_network.compact();
@@ -111,9 +111,9 @@ pub fn hierarchical_leiden(
         )?),
         None => None,
     };
-    let mut rng: XorShiftRng = match seed {
-        Some(seed) => XorShiftRng::seed_from_u64(seed),
-        None => XorShiftRng::from_entropy(),
+    let mut rng: SmallRng = match seed {
+        Some(seed) => SmallRng::seed_from_u64(seed),
+        None => SmallRng::from_rng(&mut rand::rng()),
     };
 
     let compact_network: &CompactNetwork = labeled_network.compact();

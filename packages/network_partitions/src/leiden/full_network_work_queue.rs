@@ -4,7 +4,7 @@
 use crate::errors::CoreError;
 use std::collections::VecDeque;
 
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 /// The FullNetworkWorkQueue is a composite class of a circular work queue and a vec of bools indicating
 /// when a node should be treated as stable
@@ -62,7 +62,7 @@ impl FullNetworkWorkQueue {
         let mut stable: Vec<bool> = Vec::with_capacity(len);
         for i in 0..len {
             stable.push(false);
-            let random_index: usize = rng.gen_range(0..len);
+            let random_index: usize = rng.random_range(0..len);
             permutation.swap(i, random_index);
         }
         let work_queue: VecDeque<usize> = VecDeque::from(permutation);
@@ -110,12 +110,12 @@ impl FullNetworkWorkQueue {
 mod tests {
     use super::*;
     use rand::SeedableRng;
-    use rand_xorshift::XorShiftRng;
+    use rand::rngs::SmallRng;
 
     #[test]
     fn test_determinism() {
-        let mut rng1: XorShiftRng = XorShiftRng::seed_from_u64(1234);
-        let mut rng2: XorShiftRng = XorShiftRng::seed_from_u64(1234);
+        let mut rng1: SmallRng = SmallRng::seed_from_u64(1234);
+        let mut rng2: SmallRng = SmallRng::seed_from_u64(1234);
         let order_1: FullNetworkWorkQueue =
             FullNetworkWorkQueue::items_in_random_order(100000, &mut rng1);
         let order_2: FullNetworkWorkQueue =

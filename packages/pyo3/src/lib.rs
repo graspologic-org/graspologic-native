@@ -9,6 +9,7 @@ mod mediator;
 use std::collections::{HashMap, HashSet};
 
 use pyo3::prelude::*;
+use pyo3::PyTypeInfo;
 
 use network_partitions::clustering::Clustering;
 use network_partitions::errors::CoreError;
@@ -105,7 +106,7 @@ fn leiden(
     trials: u64,
 ) -> PyResult<(f64, HashMap<String, usize>)> {
     let result: Result<(f64, HashMap<String, usize>), PyLeidenError> =
-        py.allow_threads(move || {
+        py.detach(move || {
             mediator::leiden(
                 edges,
                 starting_communities,
@@ -182,7 +183,7 @@ fn hierarchical_leiden(
     max_cluster_size: u32,
     seed: Option<u64>,
 ) -> PyResult<Vec<HierarchicalCluster>> {
-    let result: Result<Vec<HierarchicalCluster>, PyLeidenError> = py.allow_threads(move || {
+    let result: Result<Vec<HierarchicalCluster>, PyLeidenError> = py.detach(move || {
         mediator::hierarchical_leiden(
             edges,
             starting_communities,
@@ -219,7 +220,7 @@ fn modularity(
     resolution: f64,
 ) -> PyResult<f64> {
     let result: Result<f64, PyLeidenError> =
-        py.allow_threads(move || mediator::modularity(edges, communities, resolution));
+        py.detach(move || mediator::modularity(edges, communities, resolution));
 
     result.map_err(PyErr::from)
 }
@@ -238,22 +239,22 @@ fn graspologic_native(
 
     module.add(
         "ClusterIndexingError",
-        py.get_type::<ClusterIndexingError>(),
+        ClusterIndexingError::type_object(py),
     )?;
-    module.add("EmptyNetworkError", py.get_type::<EmptyNetworkError>())?;
+    module.add("EmptyNetworkError", EmptyNetworkError::type_object(py))?;
     module.add(
         "InvalidCommunityMappingError",
-        py.get_type::<InvalidCommunityMappingError>(),
+        InvalidCommunityMappingError::type_object(py),
     )?;
     module.add(
         "InternalNetworkIndexingError",
-        py.get_type::<InternalNetworkIndexingError>(),
+        InternalNetworkIndexingError::type_object(py),
     )?;
-    module.add("ParameterRangeError", py.get_type::<ParameterRangeError>())?;
+    module.add("ParameterRangeError", ParameterRangeError::type_object(py))?;
     module.add(
         "UnsafeInducementError",
-        py.get_type::<UnsafeInducementError>(),
+        UnsafeInducementError::type_object(py),
     )?;
-    module.add("QueueError", py.get_type::<QueueError>())?;
+    module.add("QueueError", QueueError::type_object(py))?;
     Ok(())
 }

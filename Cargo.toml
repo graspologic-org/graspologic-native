@@ -1,5 +1,6 @@
 [workspace]
 members = ["packages/network_partitions", "packages/cli", "packages/pyo3"]
+resolver = "3"
 
 [profile.release]
 opt-level = 3

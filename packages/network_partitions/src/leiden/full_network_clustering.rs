@@ -257,11 +257,11 @@ mod tests {
     use crate::network::{Edge, LabeledNetwork};
     use crate::resolution;
     use rand::SeedableRng;
-    use rand_xorshift::XorShiftRng;
+    use rand::rngs::SmallRng;
 
     #[test]
     fn test_improve_initial_clustering() {
-        let mut rng: XorShiftRng = XorShiftRng::seed_from_u64(1234);
+        let mut rng: SmallRng = SmallRng::seed_from_u64(1234);
 
         // generate same graph as in java, done via Network object not InternalNetwork, then
         // generate a InternalNetwork from it
