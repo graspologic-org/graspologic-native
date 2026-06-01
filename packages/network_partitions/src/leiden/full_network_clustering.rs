@@ -14,6 +14,7 @@ pub fn full_network_clustering<T>(
     clustering: &mut Clustering,
     adjusted_resolution: f64,
     rng: &mut T,
+    max_local_moving_iterations: u32,
 ) -> Result<bool, CoreError>
 where
     T: Rng,
@@ -36,7 +37,19 @@ where
     let mut neighboring_clusters: NeighboringClusters =
         NeighboringClusters::with_capacity(network.num_nodes());
 
+    let max_nodes_to_process: usize = if max_local_moving_iterations == 0 {
+        usize::MAX
+    } else {
+        max_local_moving_iterations as usize * network.num_nodes()
+    };
+    let mut nodes_processed: usize = 0;
+
     while !work_queue.is_empty() {
+        if nodes_processed >= max_nodes_to_process {
+            break;
+        }
+        nodes_processed += 1;
+
         let current_node: usize = work_queue.pop_front()?;
         let current_cluster: usize = clustering.cluster_at(current_node)?;
         let current_node_weight: f64 = network.node_weight(current_node);
@@ -293,6 +306,7 @@ mod tests {
             &mut clustering,
             adjusted_resolution,
             &mut rng,
+            0,
         )
         .unwrap();
 

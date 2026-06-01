@@ -25,6 +25,8 @@ pub fn leiden(
     use_modularity: bool,
     seed: Option<u64>,
     trials: u64,
+    max_outer_iterations: Option<u32>,
+    max_local_moving_iterations: Option<u32>,
 ) -> Result<(f64, HashMap<String, usize>), PyLeidenError> {
     let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
     let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
@@ -56,6 +58,8 @@ pub fn leiden(
             Some(randomness),
             &mut rng,
             use_modularity,
+            max_outer_iterations,
+            max_local_moving_iterations,
         )?;
 
         let quality_score: f64 = quality::quality(
@@ -100,6 +104,8 @@ pub fn hierarchical_leiden(
     use_modularity: bool,
     max_cluster_size: u32,
     seed: Option<u64>,
+    max_outer_iterations: Option<u32>,
+    max_local_moving_iterations: Option<u32>,
 ) -> Result<Vec<HierarchicalCluster>, PyLeidenError> {
     let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
     let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
@@ -126,6 +132,8 @@ pub fn hierarchical_leiden(
         &mut rng,
         use_modularity,
         max_cluster_size,
+        max_outer_iterations,
+        max_local_moving_iterations,
     )?;
 
     let mut hierarchical_clustering: Vec<HierarchicalCluster> =

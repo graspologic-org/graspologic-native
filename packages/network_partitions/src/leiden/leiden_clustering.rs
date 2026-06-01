@@ -62,12 +62,16 @@ pub fn leiden<T>(
     randomness: Option<f64>,
     rng: &mut T,
     use_modularity: bool,
+    max_outer_iterations: Option<u32>,
+    max_local_moving_iterations: Option<u32>,
 ) -> Result<(bool, Clustering), CoreError>
 where
     T: Rng + Clone + Send,
 {
     let iterations: usize = iterations.unwrap_or(DEFAULT_ITERATIONS);
     let randomness: f64 = randomness.unwrap_or(subnetwork::DEFAULT_RANDOMNESS);
+    let max_outer: u32 = max_outer_iterations.unwrap_or(0);
+    let max_local: u32 = max_local_moving_iterations.unwrap_or(0);
 
     let adjusted_resolution: f64 = adjust_resolution(resolution, network, use_modularity);
 
@@ -92,6 +96,8 @@ where
             adjusted_resolution,
             randomness,
             rng,
+            max_outer,
+            max_local,
         )?;
     }
 
@@ -106,6 +112,8 @@ fn improve_clustering<T>(
     adjusted_resolution: f64,
     randomness: f64,
     rng: &mut T,
+    max_outer_iterations: u32,
+    max_local_moving_iterations: u32,
 ) -> Result<bool, CoreError>
 where
     T: Rng + Clone + Send,
@@ -116,9 +124,12 @@ where
         clustering,
         adjusted_resolution,
         rng,
+        max_local_moving_iterations,
     )?;
 
-    if clustering.next_cluster_id() < network.num_nodes() {
+    if clustering.next_cluster_id() < network.num_nodes()
+        && (max_outer_iterations == 0 || max_outer_iterations > 1)
+    {
         // given the updated clustering, generate subnetworks for each cluster comprised solely of the
         // nodes in that cluster, then fast, low-fidelity cluster the subnetworks, merging the results
         // back into the primary clustering before returning
@@ -174,6 +185,12 @@ where
             induced_clustering_network.num_nodes(),
         );
 
+        let next_max_outer = if max_outer_iterations == 0 {
+            0
+        } else {
+            max_outer_iterations - 1
+        };
+
         improved |= improve_clustering(
             &induced_clustering_network,
             &mut induced_network_clustering,
@@ -181,6 +198,8 @@ where
             adjusted_resolution,
             randomness,
             rng,
+            next_max_outer,
+            max_local_moving_iterations,
         )?;
         clustering.merge_clustering(&induced_network_clustering);
     }

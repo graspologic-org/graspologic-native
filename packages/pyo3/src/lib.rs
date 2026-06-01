@@ -89,7 +89,7 @@ impl HierarchicalCluster {
 /// :raises ParameterRangeError: One of the parameters provided did not meet the requirements in the documentation.
 /// :raises UnsafeInducementError: An internal algorithm error. Please report with reproduction steps.
 #[pyfunction]
-#[pyo3(signature=(/, edges, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, seed=None, trials=1))]
+#[pyo3(signature=(/, edges, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, seed=None, trials=1, max_outer_iterations=None, max_local_moving_iterations=None))]
 fn leiden(
     py: Python,
     edges: Vec<Edge>,
@@ -100,6 +100,8 @@ fn leiden(
     use_modularity: bool,
     seed: Option<u64>,
     trials: u64,
+    max_outer_iterations: Option<u32>,
+    max_local_moving_iterations: Option<u32>,
 ) -> PyResult<(f64, HashMap<String, usize>)> {
     let result: Result<(f64, HashMap<String, usize>), PyLeidenError> = py.detach(move || {
         mediator::leiden(
@@ -111,6 +113,8 @@ fn leiden(
             use_modularity,
             seed,
             trials,
+            max_outer_iterations,
+            max_local_moving_iterations,
         )
     });
     result.map_err(PyErr::from)
@@ -166,7 +170,7 @@ fn leiden(
 /// :raises ParameterRangeError: One of the parameters provided did not meet the requirements in the documentation.
 /// :raises UnsafeInducementError: An internal algorithm error. Please report with reproduction steps.
 #[pyfunction]
-#[pyo3(signature=(/, edges, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, max_cluster_size=1000, seed=None))]
+#[pyo3(signature=(/, edges, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, max_cluster_size=1000, seed=None, max_outer_iterations=None, max_local_moving_iterations=None))]
 fn hierarchical_leiden(
     py: Python,
     edges: Vec<Edge>,
@@ -177,6 +181,8 @@ fn hierarchical_leiden(
     use_modularity: bool,
     max_cluster_size: u32,
     seed: Option<u64>,
+    max_outer_iterations: Option<u32>,
+    max_local_moving_iterations: Option<u32>,
 ) -> PyResult<Vec<HierarchicalCluster>> {
     let result: Result<Vec<HierarchicalCluster>, PyLeidenError> = py.detach(move || {
         mediator::hierarchical_leiden(
@@ -188,6 +194,8 @@ fn hierarchical_leiden(
             use_modularity,
             max_cluster_size,
             seed,
+            max_outer_iterations,
+            max_local_moving_iterations,
         )
     });
     result.map_err(PyErr::from)
