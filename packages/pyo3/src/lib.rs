@@ -85,10 +85,10 @@ impl HierarchicalCluster {
 ///     aggregation is performed (only local moving + refinement on the original network). When
 ///     `None` or 0, the algorithm recurses until convergence (default behavior).
 /// :param Optional[int] max_local_moving_iterations: Default is `None`. When set, limits the
-///     number of sweeps through the network during the local moving phase. One sweep processes
-///     each node once. A value of 1 means each node is considered for movement at most once per
-///     local moving call. When `None` or 0, local moving continues until convergence (default
-///     behavior).
+///     number of sweeps through the local-moving work queue. One sweep is defined as processing
+///     `N` node-pop operations from the queue, where `N` is the number of nodes in the network.
+///     A value of 1 therefore caps local moving at `N` queue pops for that phase. When `None` or 0,
+///     local moving continues until convergence (default behavior).
 /// :return: The modularity of the best community partitioning and a dictionary of node to community
 ///     ids. The community ids will start at 0 and increment.
 /// :rtype: Tuple[float, Dict[str, int]]
@@ -174,10 +174,10 @@ fn leiden(
 ///     aggregation is performed (only local moving + refinement on the original network). When
 ///     `None` or 0, the algorithm recurses until convergence (default behavior).
 /// :param Optional[int] max_local_moving_iterations: Default is `None`. When set, limits the
-///     number of sweeps through the network during the local moving phase. One sweep processes
-///     each node once. A value of 1 means each node is considered for movement at most once per
-///     local moving call. When `None` or 0, local moving continues until convergence (default
-///     behavior).
+///     number of sweeps through the local-moving work queue. One sweep is defined as processing
+///     `N` node-pop operations from the queue, where `N` is the number of nodes in the network.
+///     A value of 1 therefore caps local moving at `N` queue pops for that phase. When `None` or 0,
+///     local moving continues until convergence (default behavior).
 /// :return: A list of HierarchicalCluster entries. A hierarchical cluster contains a node id, the
 ///     cluster id, the level, an optional parent, and whether or not it is the final entry for that
 ///     node.
