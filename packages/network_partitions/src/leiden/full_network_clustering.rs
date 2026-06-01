@@ -456,10 +456,8 @@ mod tests {
         let adjusted_resolution: f64 =
             resolution::adjust_resolution(Option::None, labeled_network.compact(), true);
 
-        let mut clustering1: Clustering =
-            Clustering::as_self_clusters(labeled_network.num_nodes());
-        let mut clustering2: Clustering =
-            Clustering::as_self_clusters(labeled_network.num_nodes());
+        let mut clustering1: Clustering = Clustering::as_self_clusters(labeled_network.num_nodes());
+        let mut clustering2: Clustering = Clustering::as_self_clusters(labeled_network.num_nodes());
 
         // max_local_moving_iterations = 0 should behave the same as no limit
         full_network_clustering(
@@ -498,16 +496,12 @@ mod tests {
         // on a small network (would overflow if using regular multiplication on a large network)
         let mut rng: SmallRng = SmallRng::seed_from_u64(7);
 
-        let edges: Vec<Edge> = vec![
-            ("a".into(), "b".into(), 1.0),
-            ("b".into(), "c".into(), 1.0),
-        ];
+        let edges: Vec<Edge> = vec![("a".into(), "b".into(), 1.0), ("b".into(), "c".into(), 1.0)];
 
         let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
         let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
 
-        let mut clustering: Clustering =
-            Clustering::as_self_clusters(labeled_network.num_nodes());
+        let mut clustering: Clustering = Clustering::as_self_clusters(labeled_network.num_nodes());
 
         let adjusted_resolution: f64 =
             resolution::adjust_resolution(Option::None, labeled_network.compact(), true);
