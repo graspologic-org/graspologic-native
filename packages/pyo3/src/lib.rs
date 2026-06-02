@@ -70,25 +70,26 @@ impl HierarchicalCluster {
 /// :param float randomness: Default is `0.001`. The larger the randomness value, the more
 ///     exploration of the partition space is possible. This is a major difference from the Louvain
 ///     algorithm. The Louvain algorithm is purely greedy in the partition exploration.
-/// :param int iterations: Default is `1`. The leiden algorithm is recursive, but subject to pseudo-random
-///     number generators which sometimes lead to suboptimal community membership. Setting a number
-///     greater than 1 will force leiden to run at minimum `iterations - 1` more times seeking a
-///     more optimal partitioning.
+/// :param int iterations: Default is `1`. How many times to run the full Leiden cycle
+///     (local moving → refinement → recursive aggregation) on the original network. Each
+///     iteration uses the previous result as its starting clustering, giving the algorithm
+///     additional chances to escape suboptimal partitions. This is distinct from ``trials``,
+///     which runs independent attempts and keeps the best result.
 /// :param bool use_modularity: Default is `True`. Whether to use modularity or CPM as the
 ///     maximization function.
 /// :param Optional[int] seed: Default is `None`. If provided, the seed will be used in creating the
 ///     Pseudo-Random Number Generator at a known state, making runs over the same network and
 ///     starting_communities with the same parameters end with the same results.
-/// :param int trials: Default is `1`. Leiden will be run repeatedly, keeping the best clustering
-///     as per the maximization function. At the end of `repetitions` it will return the best
-///     clustering.
+/// :param int trials: Default is `1`. Number of independent Leiden runs. Each trial starts
+///     from scratch (or from ``starting_communities`` if provided) and the result with the
+///     highest quality score is returned.
 /// :param Optional[int] max_local_moving_iterations: Default is `None`. When set, limits the
 ///     number of sweeps through the local-moving work queue. One sweep is defined as processing
-///     `N` node-pop operations from the queue, where `N` is the number of nodes in the network.
-///     A value of 1 therefore caps local moving at `N` queue pops for that phase. When `None` or 0,
-///     local moving continues until convergence (default behavior).
-/// :return: The modularity of the best community partitioning and a dictionary of node to community
-///     ids. The community ids will start at 0 and increment.
+///     ``N`` node-pop operations from the queue, where ``N`` is the number of nodes in the
+///     network. A value of 1 therefore caps local moving at ``N`` queue pops for that phase.
+///     When ``None`` or 0, local moving continues until convergence (default behavior).
+/// :return: The quality score of the best community partitioning and a dictionary of node to
+///     community ids. The community ids will start at 0 and increment.
 /// :rtype: Tuple[float, Dict[str, int]]
 /// :raises ClusterIndexingError:
 /// :raises EmptyNetworkError:
@@ -154,10 +155,10 @@ fn leiden(
 /// :param float randomness: Default is `0.001`. The larger the randomness value, the more
 ///     exploration of the partition space is possible. This is a major difference from the Louvain
 ///     algorithm. The Louvain algorithm is purely greedy in the partition exploration.
-/// :param int iterations: Default is `1`. The leiden algorithm is recursive, but subject to pseudo-random
-///     number generators which sometimes lead to suboptimal community membership. Setting a number
-///     greater than 1 will force leiden to run at minimum `iterations - 1` more times seeking a
-///     more optimal partitioning.
+/// :param int iterations: Default is `1`. How many times to run the full Leiden cycle
+///     (local moving → refinement → recursive aggregation) on the original network. Each
+///     iteration uses the previous result as its starting clustering, giving the algorithm
+///     additional chances to escape suboptimal partitions.
 /// :param bool use_modularity: Default is `True`. Whether to use modularity or CPM as the
 ///     maximization function.
 /// :param int max_cluster_size: Default is `1000`. Any cluster larger than 1000 will be broken into
@@ -262,11 +263,14 @@ fn modularity(
 ///     and lower resolution values leads to fewer communities. Must be greater than 0.
 /// :param float randomness: Default is `0.001`. The larger the randomness value, the more
 ///     exploration of the partition space is possible.
-/// :param int iterations: Default is `1`. Number of times to run the full Leiden algorithm.
+/// :param int iterations: Default is `1`. How many times to run the full Leiden cycle on the
+///     original network. Each iteration uses the previous clustering as its starting point.
 /// :param bool use_modularity: Default is `True`. Whether to use modularity or CPM.
 /// :param Optional[int] seed: Default is `None`. Random seed for reproducibility.
 /// :param int trials: Default is `1`. Number of independent runs, returning the best result.
-/// :param Optional[int] max_local_moving_iterations: Default is `None`. Limits local moving sweeps.
+/// :param Optional[int] max_local_moving_iterations: Default is `None`. When set, limits the
+///     number of sweeps through the local-moving work queue. When ``None`` or 0, local moving
+///     continues until convergence.
 /// :return: The quality score and a dictionary mapping node ID (int) to community ID (int).
 /// :rtype: Tuple[float, Dict[int, int]]
 /// :raises ParameterRangeError: If CSR validation fails or parameters are out of range.
