@@ -16,44 +16,43 @@ use super::subnetwork::SubnetworkClusteringGenerator;
 
 const DEFAULT_ITERATIONS: usize = 1;
 
-/// Improves a clustering by performing `iterations` of the Leiden algorithm, which is itself
-/// a recursive algorithm.
+/// Performs the Leiden community detection algorithm on a `CompactNetwork`.
 ///
-/// The Leiden algorithm consists of three phases:
-/// - local moving of nodes between clusters
-/// - refinement of the clusters
-/// - aggregation of the network based on the refined clusters, using the non-refined clusters to
-///   create an initial clustering for the aggregate network
+/// Each outer iteration runs the full Leiden cycle on the original network:
+/// 1. **Local moving** — greedily moves nodes between clusters to maximize the
+///    quality function.
+/// 2. **Refinement** — stochastically splits each cluster into sub-clusters to
+///    escape local optima.
+/// 3. **Aggregation** — builds an induced (coarsened) network from the refined
+///    clustering and recursively repeats steps 1–3 on it until the network
+///    stops shrinking (inner convergence).
+/// 4. **Mapping back** — projects the coarsened clustering onto the original nodes.
 ///
-/// These phases are repeated until no further improvements can be made.
+/// Because these phases include randomness, running multiple outer iterations
+/// gives the algorithm additional chances to escape suboptimal partitions.
 ///
-/// Because these phases include a random number generator, `iterations` acts as a further
-/// refinement of the process, ensuring that we do at least `iterations-1` further tries to ensure
-/// that we've actually achieved a stable partitioning.
+/// # Parameters
 ///
-/// If an initial Clustering is provided, it will be used as the starting point for the Leiden algorithm,
-/// otherwise each node will be placed in their own cluster to start.
-///
-/// network: InternalNetwork to generate or update a clustering for based on the Leiden algorithm
-/// clustering: An optional initial clustering. If an initial Clustering is provided, it will be used
-///  as the starting point for the Leiden algorithm, otherwise each node will be placed in their own
-///  cluster to start.
-/// iterations: The leiden algorithm is recursive and will continue until improvements cannot be made; however,
-///  randomization is a part of the algorithm and you may request further iterations by setting iterations
-///  to be a number greater than 1 to force it to try a few more times for some minor, further refinements.
-/// resolution: Default is 1.0, and impacts the maximization function used. The resolution must be greater than
-///   zero.  A higher resolution values leads to more communities, a lower resolution parameter leads to fewer
-///   communities.
-/// randomness: Default is 1E-2. The value must be greater than 0. The higher the randomness value, the more
-///   exploration of the partition space is possible.  This is a major difference from the Louvain algorithm.
-///   The Louvain algorithm is purely greedy in the partition exploration.
-/// seed: If a seed is provided, the Pseudo-Random Number Generator will be created using that seed.
-///   Useful for replicating results between runs.
-/// use_modularity: Leiden uses a maximization function, and this lets you specify whether you wish
-///   to use modularity or Constant Potts Model (CPM). It's vital that the InternalNetwork is appropriate
-///   for this setting: see InternalNetwork::for_modularity_maximization or
-///   InternalNetwork::for_cpm_maximization and ensure you use the function that builds the corresponding
-///   InternalNetwork for this setting.
+/// - `network`: The network to cluster.
+/// - `clustering`: Optional initial clustering. If `None`, each node starts in
+///   its own singleton cluster.
+/// - `iterations`: Number of outer iterations (default 1). Each iteration
+///   re-runs the full cycle on the original network, using the previous
+///   clustering as the starting point. This refines a single solution
+///   progressively (distinct from `trials`, which runs independent attempts
+///   and keeps the best).
+/// - `resolution`: Quality-function resolution (default 1.0, must be > 0).
+///   Higher values produce more communities; lower values produce fewer.
+/// - `randomness`: Controls exploration during refinement (default 1e-2, must
+///   be > 0). Higher values allow more exploration of the partition space.
+/// - `rng`: A seeded random number generator for reproducibility.
+/// - `use_modularity`: If `true`, optimizes modularity; if `false`, uses CPM.
+///   The network must be constructed appropriately for the chosen mode.
+/// - `max_outer_iterations`: Synonym for `iterations`. If provided, this value
+///   is used as the outer loop count instead of `iterations`. Exists for API
+///   compatibility with callers that use a separate parameter name.
+/// - `max_local_moving_iterations`: Limits the number of node-processing sweeps
+///   within a single local-moving call. `None` or `Some(0)` means unlimited.
 pub fn leiden<T>(
     network: &CompactNetwork,
     clustering: Option<Clustering>,
@@ -72,8 +71,8 @@ where
     let randomness: f64 = randomness.unwrap_or(subnetwork::DEFAULT_RANDOMNESS);
     let max_local: u32 = max_local_moving_iterations.unwrap_or(0);
 
-    // max_outer_iterations overrides iterations if provided.
-    // Each outer iteration runs: LM → refine → aggregate → recurse-to-convergence.
+    // max_outer_iterations is a synonym for iterations (same concept, alternate
+    // parameter name from the Python API). Use whichever was provided.
     let outer_limit: usize = match max_outer_iterations {
         Some(n) => n as usize,
         None => iterations,
@@ -110,12 +109,13 @@ where
     Ok((improved, clustering))
 }
 
-/// Like `leiden`, but operates on any `NetworkView` implementation for zero-copy support.
+/// Like [`leiden`], but operates on any [`NetworkView`] implementation for zero-copy support.
 ///
-/// The initial local-moving phase runs directly on the provided view (zero-copy).
-/// If the algorithm needs to recurse (aggregation), it materializes a `CompactNetwork`
-/// internally. This gives the best of both worlds: zero-copy for the expensive first
-/// pass, with full recursive support when needed.
+/// The first local-moving pass runs directly on the provided view (avoiding
+/// materialization). If aggregation is needed, a `CompactNetwork` is created
+/// internally for the recursive phases. This gives the best of both worlds:
+/// zero-copy for the expensive initial pass on large external data structures,
+/// with full recursive aggregation when needed.
 pub fn leiden_view<N, T>(
     network: &N,
     clustering: Option<Clustering>,
@@ -135,7 +135,7 @@ where
     let randomness: f64 = randomness.unwrap_or(subnetwork::DEFAULT_RANDOMNESS);
     let max_local: u32 = max_local_moving_iterations.unwrap_or(0);
 
-    // max_outer_iterations overrides iterations if provided.
+    // max_outer_iterations is a synonym for iterations.
     let outer_limit: usize = match max_outer_iterations {
         Some(n) => n as usize,
         None => iterations,
@@ -173,7 +173,11 @@ where
     Ok((improved, clustering))
 }
 
-/// First improvement pass using a generic NetworkView, then materializes for recursion.
+/// Single outer-iteration pass using a generic NetworkView.
+///
+/// Runs local moving on the view (zero-copy), then — if clusters were formed —
+/// materializes a CompactNetwork and delegates to [`improve_clustering_recursive`]
+/// for the refinement and aggregation phases.
 fn improve_clustering_view<N, T>(
     network: &N,
     clustering: &mut Clustering,
@@ -198,8 +202,8 @@ where
     )?;
 
     if clustering.next_cluster_id() < network.num_nodes() {
-        // Recursion needed: materialize to CompactNetwork and delegate.
-        // Inner aggregation always runs to convergence (None = unlimited).
+        // Clusters were formed — materialize to CompactNetwork for refinement
+        // and recursive aggregation.
         let compact_network = network.to_compact_network();
 
         improved |= improve_clustering_recursive(
@@ -215,10 +219,18 @@ where
     Ok(improved)
 }
 
-/// Recursive aggregation phase — always operates on CompactNetwork.
-/// This always recurses to convergence (the induced network is aggregated
-/// repeatedly until it stops shrinking). This is the inner loop within
-/// a single outer iteration.
+/// Refinement and recursive aggregation phase — always operates on CompactNetwork.
+///
+/// Given a clustering produced by local moving, this function:
+/// 1. Refines each cluster via stochastic sub-clustering.
+/// 2. Builds an induced (coarsened) network from the refined clustering.
+/// 3. If the induced network is smaller, recursively calls [`improve_clustering`]
+///    on it (which repeats LM → refine → aggregate until convergence).
+/// 4. If the induced network is NOT smaller (no aggregation progress), runs one
+///    final local-moving pass on it without further recursion — this allows LM
+///    to re-merge clusters that refinement may have split, without risking
+///    infinite oscillation.
+/// 5. Maps the induced-network clustering back onto the original nodes.
 fn improve_clustering_recursive<T>(
     network: &CompactNetwork,
     clustering: &mut Clustering,
@@ -337,7 +349,12 @@ fn guarantee_clustering_sanity_view<N: NetworkView>(
     Ok(())
 }
 
-/// This function will be executed repeatedly as per number_iterations
+/// Single outer-iteration pass on a CompactNetwork.
+///
+/// Runs local moving, then — if any nodes were merged — performs refinement
+/// and recursive aggregation via the same logic as [`improve_clustering_recursive`].
+/// The `_max_outer_iterations` parameter is accepted for signature compatibility
+/// but unused; outer-loop control lives in [`leiden`]/[`leiden_view`].
 fn improve_clustering<T>(
     network: &CompactNetwork,
     clustering: &mut Clustering,
@@ -351,7 +368,7 @@ fn improve_clustering<T>(
 where
     T: Rng + Clone + Send,
 {
-    // do a slower, higher fidelity full network clustering
+    // Local moving: greedily reassign nodes to maximize the quality function
     let mut improved: bool = full_network_clustering::full_network_clustering(
         network,
         clustering,
@@ -361,9 +378,9 @@ where
     )?;
 
     if clustering.next_cluster_id() < network.num_nodes() {
-        // given the updated clustering, generate subnetworks for each cluster comprised solely of the
-        // nodes in that cluster, then fast, low-fidelity cluster the subnetworks, merging the results
-        // back into the primary clustering before returning
+        // Refinement phase: for each cluster, build a subnetwork containing only
+        // its nodes and stochastically sub-cluster it. This can split clusters to
+        // escape local optima that local moving alone cannot find.
         let nodes_by_cluster: Vec<Vec<CompactNodeId>> = clustering.nodes_per_cluster();
         let subnetworks_iterator = network.subnetworks_iter(clustering, &nodes_by_cluster, None);
         let num_nodes_per_cluster: Vec<u64> = clustering.num_nodes_per_cluster();
