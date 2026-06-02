@@ -21,32 +21,37 @@ mod tests {
     /// Verify leiden_view produces equivalent results to leiden on the same CompactNetwork.
     #[test]
     fn test_leiden_view_vs_leiden_on_compact_network() {
-        // Two triangles (weight 10) connected by a weak bridge (weight 0.01)
-        // Node weights = sum of incident edge weights (modularity convention)
+        // Two triangles (weight 10) connected by a weak bridge (weight 0.01) between nodes 2-3.
+        // Node weights = sum of incident non-self-loop edge weights (modularity convention).
+        // Node 0: edges to 1(10), 2(10) → weight 20
+        // Node 1: edges to 0(10), 2(10) → weight 20
+        // Node 2: edges to 0(10), 1(10), 3(0.01) → weight 20.01
+        // Node 3: edges to 2(0.01), 4(10), 5(10) → weight 20.01
+        // Node 4: edges to 3(10), 5(10) → weight 20
+        // Node 5: edges to 3(10), 4(10) → weight 20
         let nodes = vec![
-            (20.01_f64, 0_usize),
+            (20.0_f64, 0_usize),
             (20.0, 2),
             (20.01, 4),
             (20.01, 7),
             (20.0, 10),
-            (20.01, 12),
+            (20.0, 12),
         ];
         let neighbors = vec![
             (1_usize, 10.0_f64),
-            (2, 10.0),
-            (3, 0.01), // node 0
+            (2, 10.0), // node 0: neighbors 1, 2
             (0, 10.0),
-            (2, 10.0), // node 1
+            (2, 10.0), // node 1: neighbors 0, 2
             (0, 10.0),
             (1, 10.0),
-            (3, 0.01), // node 2 -- wait, bridge is 2-3
+            (3, 0.01), // node 2: neighbors 0, 1, 3
             (2, 0.01),
             (4, 10.0),
-            (5, 10.0), // node 3
+            (5, 10.0), // node 3: neighbors 2, 4, 5
             (3, 10.0),
-            (5, 10.0), // node 4
+            (5, 10.0), // node 4: neighbors 3, 5
             (3, 10.0),
-            (4, 10.0), // node 5
+            (4, 10.0), // node 5: neighbors 3, 4
         ];
         let compact = CompactNetwork::from(nodes, neighbors, 0.0);
 

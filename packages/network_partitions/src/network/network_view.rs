@@ -20,11 +20,17 @@ pub struct Neighbor {
 /// - The network is undirected: if node A lists node B as a neighbor with weight W,
 ///   then node B must list node A as a neighbor with weight W.
 /// - All neighbor IDs returned by `neighbors_for` are `< num_nodes()`.
+/// - `neighbors_for` does NOT yield self-loop entries (diagonal entries). Self-loop
+///   weights are tracked separately via `total_self_links_edge_weight()`.
 /// - Edge weights are finite and non-negative.
 /// - Node IDs are dense integers in `0..num_nodes()`.
-/// - `total_edge_weight()` equals half the sum of all edge weights (since each undirected
-///   edge is stored twice).
+/// - `total_edge_weight()` equals half the sum of all non-self-loop edge weights
+///   (since each undirected edge is stored twice in the adjacency representation).
+///   Self-loop weights are excluded from this total.
+/// - `total_self_links_edge_weight()` is the sum of all diagonal/self-loop weights.
 /// - `total_node_weight()` equals the sum of all node weights.
+/// - Node weights (for modularity) should equal the sum of incident non-self-loop
+///   edge weights for that node.
 pub trait NetworkView {
     /// Iterator type returned by `neighbors_for`.
     type Neighbors<'a>: Iterator<Item = Neighbor> + 'a

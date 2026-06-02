@@ -93,7 +93,7 @@ impl<'a> ScipyCsrView<'a> {
             }
         }
 
-        // Compute node weights (row sums) and totals — O(nnz)
+        // Compute node weights (row sums excluding self-loops) and totals — O(nnz)
         let mut node_weights = vec![0.0_f64; n_nodes];
         let mut total = 0.0_f64;
         let mut total_self_links = 0.0_f64;
@@ -104,15 +104,22 @@ impl<'a> ScipyCsrView<'a> {
             let mut row_sum = 0.0_f64;
             for pos in start..end {
                 let weight = data[pos];
-                row_sum += weight;
+                if !weight.is_finite() || weight < 0.0 {
+                    return Err(format!(
+                        "data[{pos}] = {weight} is not a valid weight (must be finite and non-negative)"
+                    ));
+                }
                 if indices[pos] as usize == node {
                     total_self_links += weight;
+                } else {
+                    row_sum += weight;
                 }
             }
             node_weights[node] = row_sum;
             total += row_sum;
         }
 
+        // Each undirected non-self edge is stored twice; halve for the true total.
         let total_edge_weight = total / 2.0;
 
         Ok(Self {
@@ -138,12 +145,14 @@ impl<'a> ScipyCsrView<'a> {
 }
 
 /// Iterator over neighbors of a node in a scipy CSR view.
+/// Skips self-loop entries (where neighbor_id == source node).
 pub struct ScipyCsrNeighborIterator<'a> {
     indices: &'a [i32],
     data: &'a [f64],
     node_weights: &'a [f64],
     pos: usize,
     end: usize,
+    source_node: usize,
 }
 
 impl Iterator for ScipyCsrNeighborIterator<'_> {
@@ -151,27 +160,23 @@ impl Iterator for ScipyCsrNeighborIterator<'_> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.pos >= self.end {
-            return None;
+        while self.pos < self.end {
+            let id = self.indices[self.pos] as usize;
+            let edge_weight = self.data[self.pos];
+            self.pos += 1;
+            if id == self.source_node {
+                continue; // skip self-loops
+            }
+            let node_weight = self.node_weights[id];
+            return Some(Neighbor {
+                id,
+                edge_weight,
+                node_weight,
+            });
         }
-        let id = self.indices[self.pos] as usize;
-        let edge_weight = self.data[self.pos];
-        let node_weight = self.node_weights[id];
-        self.pos += 1;
-        Some(Neighbor {
-            id,
-            edge_weight,
-            node_weight,
-        })
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.end - self.pos;
-        (remaining, Some(remaining))
+        None
     }
 }
-
-impl ExactSizeIterator for ScipyCsrNeighborIterator<'_> {}
 
 impl<'a> NetworkView for ScipyCsrView<'a> {
     type Neighbors<'b>
@@ -204,6 +209,7 @@ impl<'a> NetworkView for ScipyCsrView<'a> {
             node_weights: &self.node_weights,
             pos: start,
             end,
+            source_node: node_id,
         }
     }
 
@@ -230,11 +236,5 @@ impl<'a> NetworkView for ScipyCsrView<'a> {
     }
 }
 
-// ScipyCsrView borrows data that lives on the Python heap (numpy arrays held by caller).
-// It's safe to share across threads because:
-// - The borrowed slices are immutable (&[i64], &[i32], &[f64])
-// - node_weights is an owned Vec
-// - During py.detach() the numpy arrays are guaranteed to not be freed or mutated
-//   (they are arguments to the active Python function call and marked read-only)
-unsafe impl Sync for ScipyCsrView<'_> {}
-unsafe impl Send for ScipyCsrView<'_> {}
+// ScipyCsrView contains only immutable borrows (&[i64], &[i32], &[f64]) and an owned Vec<f64>,
+// all of which are Send + Sync automatically. No manual unsafe impl needed.

@@ -185,8 +185,9 @@ impl<'a> CsrNetworkView<'a> {
             }
         }
 
-        // Each undirected edge is stored twice, so halve for the true total
-        total_edge_weight /= 2.0;
+        // Each undirected non-self edge is stored twice, so halve for the true total.
+        // Self-loop weights are excluded from total_edge_weight (tracked separately).
+        total_edge_weight = (total_edge_weight - total_self_links_weight) / 2.0;
 
         let cached_total_node_weight: f64 = node_weights.iter().sum();
 
@@ -208,39 +209,37 @@ impl<'a> CsrNetworkView<'a> {
 }
 
 /// Iterator over neighbors of a node in a CSR view.
+/// Skips self-loop entries (where neighbor_id == source node).
 pub struct CsrNeighborIterator<'a> {
     indices: &'a [usize],
     data: &'a [f64],
     node_weights: &'a [f64],
     pos: usize,
     end: usize,
+    source_node: usize,
 }
 
 impl Iterator for CsrNeighborIterator<'_> {
     type Item = Neighbor;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.pos >= self.end {
-            return None;
+        while self.pos < self.end {
+            let id = self.indices[self.pos];
+            let edge_weight = self.data[self.pos];
+            self.pos += 1;
+            if id == self.source_node {
+                continue; // skip self-loops
+            }
+            let node_weight = self.node_weights[id];
+            return Some(Neighbor {
+                id,
+                edge_weight,
+                node_weight,
+            });
         }
-        let id = self.indices[self.pos];
-        let edge_weight = self.data[self.pos];
-        let node_weight = self.node_weights[id];
-        self.pos += 1;
-        Some(Neighbor {
-            id,
-            edge_weight,
-            node_weight,
-        })
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.end - self.pos;
-        (remaining, Some(remaining))
+        None
     }
 }
-
-impl ExactSizeIterator for CsrNeighborIterator<'_> {}
 
 impl<'a> NetworkView for CsrNetworkView<'a> {
     type Neighbors<'b>
@@ -271,6 +270,7 @@ impl<'a> NetworkView for CsrNetworkView<'a> {
             node_weights: self.node_weights,
             pos: start,
             end,
+            source_node: node_id,
         }
     }
 

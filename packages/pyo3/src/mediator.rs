@@ -181,6 +181,12 @@ pub fn leiden_csr(
     use crate::scipy_csr::ScipyCsrView;
     use network_partitions::network::network_view::NetworkView;
 
+    if trials == 0 {
+        return Err(PyLeidenError::ParameterRangeError(
+            "trials must be >= 1".to_string(),
+        ));
+    }
+
     let csr_view = ScipyCsrView::new(indptr, indices, data, n_nodes)
         .map_err(|e| PyLeidenError::ParameterRangeError(format!("CSR validation failed: {e}")))?;
 
@@ -188,6 +194,9 @@ pub fn leiden_csr(
         Some(seed) => SmallRng::seed_from_u64(seed),
         None => SmallRng::from_rng(&mut rand::rng()),
     };
+
+    // Materialize CompactNetwork once for quality scoring (O(nnz) allocation)
+    let compact_network = csr_view.to_compact_network();
 
     let mut best_quality_score: f64 = f64::MIN;
     let mut best_clustering: Option<Clustering> = None;
@@ -206,8 +215,6 @@ pub fn leiden_csr(
             max_local_moving_iterations,
         )?;
 
-        // Quality computation needs CompactNetwork (materializes once per trial)
-        let compact_network = csr_view.to_compact_network();
         let quality_score: f64 = quality::quality(
             &compact_network,
             &clustering,
