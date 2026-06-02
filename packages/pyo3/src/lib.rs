@@ -258,6 +258,11 @@ fn modularity(
 /// The input matrix must represent an undirected graph (symmetric adjacency matrix).
 /// Node IDs are integer indices from 0 to n_nodes-1.
 ///
+/// .. warning::
+///     The input arrays must not be mutated from another thread while this function is
+///     running. The GIL is released during computation for performance; concurrent mutation
+///     of the input arrays constitutes undefined behavior.
+///
 /// :param indptr: The index pointer array from the CSR matrix (int64, length n_nodes+1).
 /// :type indptr: numpy.ndarray[numpy.int64]
 /// :param indices: The column indices array from the CSR matrix (int32).
@@ -300,8 +305,14 @@ fn leiden_csr<'py>(
     let data_slice = data.as_slice()?;
 
     // Release the GIL for the compute phase.
-    // Safety: numpy arrays are borrowed immutably and held alive by the Python caller's
-    // stack frame. They cannot be freed or mutated while this function is executing.
+    // Safety: The numpy array slices are borrowed immutably for the duration of this call.
+    // Under CPython's GIL, no other Python thread can execute while we hold the GIL to
+    // extract slices, and once we release it via detach(), no Python code in this thread
+    // can mutate the arrays. A concurrent thread *could* theoretically acquire the GIL and
+    // mutate the underlying buffers, but this would require the caller to deliberately share
+    // mutable references to the input arrays across threads — which is unsound usage on the
+    // caller's part. Callers must not mutate the input arrays from another thread while
+    // leiden_csr is running.
     let result = py.detach(move || {
         mediator::leiden_csr(
             indptr_slice,
