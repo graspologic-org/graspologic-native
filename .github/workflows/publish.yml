@@ -6,8 +6,7 @@ on:
       - "v*"
 
 permissions:
-  id-token: write
-  contents: write
+  contents: read
 
 jobs:
   verify-tag:
@@ -20,6 +19,15 @@ jobs:
         run: |
           if ! git branch -r --contains "${{ github.sha }}" | grep -q 'origin/main'; then
             echo "::error::Tag ${{ github.ref_name }} does not point to a commit on main."
+            exit 1
+          fi
+      - name: Verify tag matches Cargo.toml version
+        run: |
+          CARGO_VERSION=$(grep '^version' packages/pyo3/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          TAG_VERSION="${{ github.ref_name }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match Cargo.toml version ($CARGO_VERSION)"
             exit 1
           fi
 
@@ -64,6 +72,11 @@ jobs:
             artifact_name: dist-macos-universal2
     steps:
       - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Rust Unittests
+        run: |
+          cargo test --manifest-path packages/network_partitions/Cargo.toml
 
       - uses: PyO3/maturin-action@v1
         if: ${{ !startsWith(matrix.runner, 'windows') }}
@@ -81,6 +94,15 @@ jobs:
           command: build
           target: ${{ matrix.target }}
           args: ${{ matrix.args }}
+
+      - name: Python Unittests
+        if: ${{ !matrix.manylinux || matrix.manylinux != 'musllinux_1_2' }}
+        run: |
+          cd packages/pyo3
+          uv venv
+          uv pip install ../../target/wheels/*.whl
+          uv run python -m unittest
+        shell: bash
 
       - uses: actions/upload-artifact@v4
         with:
@@ -113,6 +135,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+          skip-existing: true
 
       - name: Create GitHub Release
         env:
