@@ -265,7 +265,12 @@ where
             clustering.update_cluster_at(*singleton_node, clustering.next_cluster_id())?;
             num_nodes_per_cluster_induced_network.push(1);
         } else if item.subnetwork.num_nodes() == 0 {
-            panic!("No node network, which shouldn't have happened");
+            // Multi-node cluster with no internal edges — split into singletons.
+            let cluster_nodes: &Vec<CompactNodeId> = &nodes_by_cluster[item.id];
+            for node in cluster_nodes {
+                clustering.update_cluster_at(*node, clustering.next_cluster_id())?;
+                num_nodes_per_cluster_induced_network.push(1);
+            }
         } else {
             let subnetwork_clustering: Clustering = subnetwork_clusterer.subnetwork_clustering(
                 item.subnetwork.compact(),
@@ -404,7 +409,14 @@ where
                 clustering.update_cluster_at(*singleton_node, clustering.next_cluster_id())?;
                 num_nodes_per_cluster_induced_network.push(1);
             } else if item.subnetwork.num_nodes() == 0 {
-                panic!("No node network, which shouldn't have happened");
+                // Multi-node cluster with no internal edges (nodes are not directly
+                // connected within this cluster). This can happen when local moving
+                // is limited to few sweeps. Split each node into its own singleton.
+                let cluster_nodes: &Vec<CompactNodeId> = &nodes_by_cluster[item.id];
+                for node in cluster_nodes {
+                    clustering.update_cluster_at(*node, clustering.next_cluster_id())?;
+                    num_nodes_per_cluster_induced_network.push(1);
+                }
             } else {
                 let subnetwork_clustering: Clustering = subnetwork_clusterer
                     .subnetwork_clustering(
