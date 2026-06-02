@@ -68,9 +68,9 @@
 ///
 /// The EdgeId is the direct index into the edges array for fast lookups of a specific edge,
 /// which is primarily useful to the subnetwork generation functions
-use super::networks::NetworkDetails;
 use crate::clustering::Clustering;
 use crate::errors::CoreError;
+use crate::network::network_view::NetworkView;
 use crate::network::{LabeledNetwork, LabeledNetworkBuilder};
 use std::collections::HashMap;
 use std::ops::Range;
@@ -306,32 +306,6 @@ impl CompactNetwork {
     }
 }
 
-impl NetworkDetails for CompactNetwork {
-    fn num_nodes(&self) -> usize {
-        self.nodes.len()
-    }
-
-    fn num_edges(&self) -> usize {
-        (self.neighbors.len() as f64 / 2_f64) as usize
-    }
-
-    fn total_node_weight(&self) -> f64 {
-        self.nodes.iter().map(|node| node.0).sum::<f64>()
-    }
-
-    fn total_edge_weight(&self) -> f64 {
-        self.neighbors
-            .iter()
-            .map(|neighbor| neighbor.1)
-            .sum::<f64>()
-            / 2_f64
-    }
-
-    fn total_self_links_edge_weight(&self) -> f64 {
-        self.total_self_links_edge_weight
-    }
-}
-
 impl<'a> IntoIterator for &'a CompactNetwork {
     type Item = CompactNodeItem<'a>;
     type IntoIter = NodeIterator<'a>;
@@ -461,6 +435,57 @@ impl Iterator for SubnetworkIterator<'_, '_> {
                 None
             }
         }
+    }
+}
+
+/// An iterator that maps `CompactNetwork`'s internal neighbor representation to `Neighbor`.
+pub struct CompactNeighborViewIterator<'a> {
+    inner: NeighborIterator<'a>,
+}
+
+impl Iterator for CompactNeighborViewIterator<'_> {
+    type Item = super::network_view::Neighbor;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|item| super::network_view::Neighbor {
+            id: item.id,
+            edge_weight: item.edge_weight,
+            node_weight: item.node_weight,
+        })
+    }
+}
+
+impl super::network_view::NetworkView for CompactNetwork {
+    type Neighbors<'a> = CompactNeighborViewIterator<'a>;
+
+    fn num_nodes(&self) -> usize {
+        self.nodes.len()
+    }
+
+    fn node_weight(&self, node_id: usize) -> f64 {
+        self.nodes[node_id].0
+    }
+
+    fn neighbors_for(&self, node_id: usize) -> Self::Neighbors<'_> {
+        CompactNeighborViewIterator {
+            inner: CompactNetwork::neighbors_for(self, node_id),
+        }
+    }
+
+    fn total_node_weight(&self) -> f64 {
+        self.nodes.iter().map(|node| node.0).sum::<f64>()
+    }
+
+    fn total_edge_weight(&self) -> f64 {
+        self.neighbors.iter().map(|neighbor| neighbor.1).sum::<f64>() / 2_f64
+    }
+
+    fn total_self_links_edge_weight(&self) -> f64 {
+        self.total_self_links_edge_weight
+    }
+
+    fn num_edges(&self) -> usize {
+        self.neighbors.len() / 2
     }
 }
 
