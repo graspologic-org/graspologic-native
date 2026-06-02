@@ -1,34 +1,38 @@
-name: graspologic-native CI
-on: [push, pull_request]
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
 jobs:
-  codestyle-check:
-    runs-on: "ubuntu-latest"
+  verify-tag:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Check format
-        run: |
-          cargo fmt -- --check
-      - name: Clippy
-        run: |
-          cargo clippy --all-targets -- -D warnings
-  version:
-    runs-on: "ubuntu-latest"
-    steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v6
-      - name: Materialize build number
-        run: |
-          uv run --with toml python .github/build/manifest_version.py packages/pyo3/Cargo.toml version.txt
-      - uses: actions/upload-artifact@v4
         with:
-          name: cargo-toml
-          path: packages/pyo3/Cargo.toml
-      - uses: actions/upload-artifact@v4
-        with:
-          name: version-txt
-          path: version.txt
+          fetch-depth: 0
+      - name: Verify tag is on main
+        run: |
+          if ! git branch -r --contains "${{ github.sha }}" | grep -q 'origin/main'; then
+            echo "::error::Tag ${{ github.ref_name }} does not point to a commit on main."
+            exit 1
+          fi
+      - name: Verify tag matches Cargo.toml version
+        run: |
+          CARGO_VERSION=$(grep '^version' packages/pyo3/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          TAG_VERSION="${{ github.ref_name }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match Cargo.toml version ($CARGO_VERSION)"
+            exit 1
+          fi
+
   build:
-    needs: ['codestyle-check', 'version']
+    needs: verify-tag
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -69,14 +73,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v6
-      - uses: actions/download-artifact@v4
-        with:
-          name: cargo-toml
-          path: materialized
-      - name: Materialized Cargo Placement
-        run: |
-          mv materialized/Cargo.toml packages/pyo3/Cargo.toml
-        shell: bash
+
       - name: Rust Unittests
         run: |
           cargo test --manifest-path packages/network_partitions/Cargo.toml
@@ -113,75 +110,39 @@ jobs:
           path: |
             target/wheels/*.whl
             target/wheels/*.tar.gz
+
   publish:
     runs-on: ubuntu-latest
-    needs: 'build'
-    if: github.ref=='refs/heads/main' || github.ref=='refs/heads/dev'
+    needs: build
+    environment: pypi-publish
     permissions:
+      id-token: write
       contents: write
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v6
       - uses: actions/download-artifact@v4
         with:
-          name: dist-linux-x64
+          pattern: dist-*
+          merge-multiple: true
           path: dist/
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist-linux-aarch64
-          path: dist/
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist-musllinux-x64
-          path: dist/
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist-musllinux-aarch64
-          path: dist/
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist-windows-x64
-          path: dist/
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist-windows-aarch64
-          path: dist/
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist-macos-universal2
-          path: dist/
-      - name: Generate SHA256 files for each wheel
+
+      - name: Generate checksums
         run: |
-          sha256sum dist/*.whl > checksums.txt
-          sha256sum dist/*.tar.gz >> checksums.txt
+          sha256sum dist/*.whl dist/*.tar.gz > checksums.txt
           cat checksums.txt
-      - uses: actions/download-artifact@v4
+
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          name: version-txt
-          path: version/
-      - name: Release Tag from Version
-        run: |
-          GRASPOLOGIC_VERSION=$(cat version/version.txt)
-          echo "GRASPOLOGIC_VERSION=$GRASPOLOGIC_VERSION" >> $GITHUB_ENV
-          echo $GRASPOLOGIC_VERSION
-      - name: Publish with twine
-        env:
-          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-        run: |
-          uv run --with twine twine upload dist/*
-      - name: Create Github Release
+          packages-dir: dist/
+          skip-existing: true
+
+      - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PRERELEASE_FLAG=""
-          if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
-            PRERELEASE_FLAG="--prerelease"
-          fi
-          gh release create "$GRASPOLOGIC_VERSION" \
-            --title "graspologic-native-${GRASPOLOGIC_VERSION}" \
+          gh release create "${{ github.ref_name }}" \
+            --title "graspologic-native ${{ github.ref_name }}" \
             --notes-file checksums.txt \
-            $PRERELEASE_FLAG \
             dist/*.whl \
             dist/*.tar.gz
-
