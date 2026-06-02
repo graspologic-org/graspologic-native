@@ -36,7 +36,7 @@ pub enum PyLeidenError {
     EmptyNetworkError,
     InvalidCommunityMappingError,
     InternalNetworkIndexingError,
-    ParameterRangeError,
+    ParameterRangeError(String),
     UnsafeInducementError,
     QueueError,
 }
@@ -48,7 +48,9 @@ impl From<CoreError> for PyLeidenError {
             CoreError::ClusterIndexingError => PyLeidenError::ClusterIndexingError,
             CoreError::EmptyNetworkError => PyLeidenError::EmptyNetworkError,
             CoreError::InternalNetworkIndexingError => PyLeidenError::InternalNetworkIndexingError,
-            CoreError::ParameterRangeError => PyLeidenError::ParameterRangeError,
+            CoreError::ParameterRangeError => {
+                PyLeidenError::ParameterRangeError("Parameter out of valid range".into())
+            }
             CoreError::UnsafeInducementError => PyLeidenError::UnsafeInducementError,
             CoreError::QueueError => PyLeidenError::QueueError,
         }
@@ -78,10 +80,7 @@ impl From<PyLeidenError> for PyErr {
                     PyLeidenError::InternalNetworkIndexingError
                 ))
             }
-            PyLeidenError::ParameterRangeError => PyErr::new::<ParameterRangeError, _>(format!(
-                "{:?}",
-                PyLeidenError::ParameterRangeError
-            )),
+            PyLeidenError::ParameterRangeError(msg) => PyErr::new::<ParameterRangeError, _>(msg),
             PyLeidenError::UnsafeInducementError => PyErr::new::<UnsafeInducementError, _>(
                 format!("{:?}", PyLeidenError::UnsafeInducementError),
             ),

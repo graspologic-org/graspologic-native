@@ -104,6 +104,221 @@ where
     Ok((improved, clustering))
 }
 
+/// Like `leiden`, but operates on any `NetworkView` implementation for zero-copy support.
+///
+/// The initial local-moving phase runs directly on the provided view (zero-copy).
+/// If the algorithm needs to recurse (aggregation), it materializes a `CompactNetwork`
+/// internally. This gives the best of both worlds: zero-copy for the expensive first
+/// pass, with full recursive support when needed.
+pub fn leiden_view<N, T>(
+    network: &N,
+    clustering: Option<Clustering>,
+    iterations: Option<usize>,
+    resolution: Option<f64>,
+    randomness: Option<f64>,
+    rng: &mut T,
+    use_modularity: bool,
+    max_outer_iterations: Option<u32>,
+    max_local_moving_iterations: Option<u32>,
+) -> Result<(bool, Clustering), CoreError>
+where
+    N: NetworkView,
+    T: Rng + Clone + Send,
+{
+    let iterations: usize = iterations.unwrap_or(DEFAULT_ITERATIONS);
+    let randomness: f64 = randomness.unwrap_or(subnetwork::DEFAULT_RANDOMNESS);
+    let max_outer: u32 = max_outer_iterations.unwrap_or(0);
+    let max_local: u32 = max_local_moving_iterations.unwrap_or(0);
+
+    let adjusted_resolution: f64 = adjust_resolution(resolution, network, use_modularity);
+
+    if randomness <= 0_f64 || adjusted_resolution <= 0_f64 {
+        return Err(CoreError::ParameterRangeError);
+    } else if network.num_nodes() == 0 {
+        return Err(CoreError::EmptyNetworkError);
+    }
+
+    let mut clustering: Clustering =
+        clustering.unwrap_or(Clustering::as_self_clusters(network.num_nodes()));
+
+    // Note: guarantee_clustering_sanity needs neighbors iteration, which NetworkView provides
+    guarantee_clustering_sanity_view(network, &mut clustering)?;
+
+    let mut improved: bool = false;
+
+    for _i in 0..iterations {
+        improved |= improve_clustering_view(
+            network,
+            &mut clustering,
+            use_modularity,
+            adjusted_resolution,
+            randomness,
+            rng,
+            max_outer,
+            max_local,
+        )?;
+    }
+
+    Ok((improved, clustering))
+}
+
+/// First improvement pass using a generic NetworkView, then materializes for recursion.
+fn improve_clustering_view<N, T>(
+    network: &N,
+    clustering: &mut Clustering,
+    use_modularity: bool,
+    adjusted_resolution: f64,
+    randomness: f64,
+    rng: &mut T,
+    max_outer_iterations: u32,
+    max_local_moving_iterations: u32,
+) -> Result<bool, CoreError>
+where
+    N: NetworkView,
+    T: Rng + Clone + Send,
+{
+    // Run local moving on the generic view (zero-copy for CSR)
+    let mut improved: bool = full_network_clustering::full_network_clustering(
+        network,
+        clustering,
+        adjusted_resolution,
+        rng,
+        max_local_moving_iterations,
+    )?;
+
+    if clustering.next_cluster_id() < network.num_nodes()
+        && (max_outer_iterations == 0 || max_outer_iterations > 1)
+    {
+        // Recursion needed: materialize to CompactNetwork and delegate
+        let compact_network = network.to_compact_network();
+
+        let next_max_outer = if max_outer_iterations == 0 {
+            0
+        } else {
+            max_outer_iterations - 1
+        };
+
+        improved |= improve_clustering_recursive(
+            &compact_network,
+            clustering,
+            use_modularity,
+            adjusted_resolution,
+            randomness,
+            rng,
+            next_max_outer,
+            max_local_moving_iterations,
+        )?;
+    }
+    Ok(improved)
+}
+
+/// Recursive aggregation phase — always operates on CompactNetwork.
+fn improve_clustering_recursive<T>(
+    network: &CompactNetwork,
+    clustering: &mut Clustering,
+    use_modularity: bool,
+    adjusted_resolution: f64,
+    randomness: f64,
+    rng: &mut T,
+    max_outer_iterations: u32,
+    max_local_moving_iterations: u32,
+) -> Result<bool, CoreError>
+where
+    T: Rng + Clone + Send,
+{
+    let nodes_by_cluster: Vec<Vec<CompactNodeId>> = clustering.nodes_per_cluster();
+    let subnetworks_iterator = network.subnetworks_iter(clustering, &nodes_by_cluster, None);
+    let num_nodes_per_cluster: Vec<u64> = clustering.num_nodes_per_cluster();
+
+    let num_subnetworks: usize = clustering.next_cluster_id();
+
+    clustering.reset_next_cluster_id();
+
+    let mut num_nodes_per_cluster_induced_network: Vec<usize> = Vec::with_capacity(num_subnetworks);
+    let max_subnetwork_size: u64 = *num_nodes_per_cluster.iter().max().unwrap();
+    let mut subnetwork_clusterer =
+        SubnetworkClusteringGenerator::with_capacity(max_subnetwork_size as usize);
+
+    for item in subnetworks_iterator {
+        if num_nodes_per_cluster[item.id] == 1 && item.subnetwork.num_nodes() == 0 {
+            let single_node_vec: &Vec<CompactNodeId> = &nodes_by_cluster[item.id];
+            let singleton_node: &usize = single_node_vec
+                .first()
+                .expect("There should be one node here");
+            clustering.update_cluster_at(*singleton_node, clustering.next_cluster_id())?;
+            num_nodes_per_cluster_induced_network.push(1);
+        } else if item.subnetwork.num_nodes() == 0 {
+            panic!("No node network, which shouldn't have happened");
+        } else {
+            let subnetwork_clustering: Clustering = subnetwork_clusterer.subnetwork_clustering(
+                item.subnetwork.compact(),
+                use_modularity,
+                adjusted_resolution,
+                randomness,
+                rng,
+            )?;
+            num_nodes_per_cluster_induced_network.push(subnetwork_clustering.next_cluster_id());
+            clustering.merge_subnetwork_clustering(&item.subnetwork, &subnetwork_clustering);
+        }
+    }
+
+    let induced_clustering_network: CompactNetwork =
+        network.induce_clustering_network(clustering)?;
+
+    let mut induced_network_clustering = initial_clustering_for_induced(
+        num_nodes_per_cluster_induced_network,
+        induced_clustering_network.num_nodes(),
+    );
+
+    let mut improved = false;
+    improved |= improve_clustering(
+        &induced_clustering_network,
+        &mut induced_network_clustering,
+        use_modularity,
+        adjusted_resolution,
+        randomness,
+        rng,
+        max_outer_iterations,
+        max_local_moving_iterations,
+    )?;
+    clustering.merge_clustering(&induced_network_clustering);
+
+    Ok(improved)
+}
+
+fn guarantee_clustering_sanity_view<N: NetworkView>(
+    network: &N,
+    clustering: &mut Clustering,
+) -> Result<(), CoreError> {
+    let mut node_neighbors: HashMap<CompactNodeId, HashSet<CompactNodeId>> = HashMap::new();
+    for node in 0..network.num_nodes() {
+        let mut neighbors: HashSet<CompactNodeId> = HashSet::new();
+        for neighbor in network.neighbors_for(node) {
+            neighbors.insert(neighbor.id);
+        }
+        node_neighbors.insert(node, neighbors);
+    }
+    let mut cluster_membership: HashMap<ClusterId, HashSet<CompactNodeId>> = HashMap::new();
+    for ClusterItem { node_id, cluster } in clustering.into_iter() {
+        let cluster_members: &mut HashSet<CompactNodeId> =
+            cluster_membership.entry(cluster).or_default();
+        cluster_members.insert(node_id);
+    }
+
+    for cluster_members in cluster_membership.values() {
+        if cluster_members.len() > 1 {
+            for cluster_member in cluster_members {
+                let neighbors = node_neighbors.get(cluster_member).unwrap();
+                if neighbors.is_disjoint(cluster_members) {
+                    let new_cluster: ClusterId = clustering.next_cluster_id();
+                    clustering.update_cluster_at(*cluster_member, new_cluster)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// This function will be executed repeatedly as per number_iterations
 fn improve_clustering<T>(
     network: &CompactNetwork,

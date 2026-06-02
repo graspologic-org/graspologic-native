@@ -13,6 +13,7 @@ crate-type = ["rlib","cdylib"]
 
 [dependencies]
 rand = "0.10"
+numpy = "0.28"
 network_partitions = { path = "../network_partitions" }
 
 [dependencies.pyo3]

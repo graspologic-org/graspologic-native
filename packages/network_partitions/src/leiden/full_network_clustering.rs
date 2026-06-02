@@ -6,17 +6,18 @@ use super::quality_value_increment;
 use crate::clustering::Clustering;
 use crate::errors::CoreError;
 use crate::leiden::neighboring_clusters::NeighboringClusters;
-use crate::network::prelude::*;
+use crate::network::network_view::NetworkView;
 use rand::Rng;
 
-pub fn full_network_clustering<T>(
-    network: &CompactNetwork,
+pub fn full_network_clustering<N, T>(
+    network: &N,
     clustering: &mut Clustering,
     adjusted_resolution: f64,
     rng: &mut T,
     max_local_moving_iterations: u32,
 ) -> Result<bool, CoreError>
 where
+    N: NetworkView,
     T: Rng,
 {
     if network.num_nodes() <= 1 {
@@ -131,23 +132,23 @@ where
     Ok(improved)
 }
 
-fn weights_and_counts_per_cluster(
-    network: &CompactNetwork,
+fn weights_and_counts_per_cluster<N: NetworkView>(
+    network: &N,
     clustering: &Clustering,
 ) -> Result<(Vec<f64>, Vec<usize>), CoreError> {
     let mut cluster_weights: Vec<f64> = vec![0_f64; network.num_nodes()];
     let mut num_nodes_per_cluster: Vec<usize> = vec![0; network.num_nodes()];
 
-    for compact_node in network {
-        let cluster_id: usize = clustering.cluster_at(compact_node.id)?;
-        cluster_weights[cluster_id] += compact_node.weight;
+    for node_id in 0..network.num_nodes() {
+        let cluster_id: usize = clustering.cluster_at(node_id)?;
+        cluster_weights[cluster_id] += network.node_weight(node_id);
         num_nodes_per_cluster[cluster_id] += 1;
     }
     Ok((cluster_weights, num_nodes_per_cluster))
 }
 
-fn unused_clusters(
-    network: &CompactNetwork,
+fn unused_clusters<N: NetworkView>(
+    network: &N,
     num_nodes_per_cluster: &[usize],
 ) -> (Vec<usize>, usize) {
     let size: usize = network.num_nodes() - 1;
@@ -181,8 +182,8 @@ fn leave_current_cluster(
     }
 }
 
-fn identify_neighboring_clusters(
-    network: &CompactNetwork,
+fn identify_neighboring_clusters<N: NetworkView>(
+    network: &N,
     clustering: &Clustering,
     current_node: usize,
     current_cluster: usize,
@@ -249,8 +250,8 @@ fn join_cluster(
     }
 }
 
-fn trigger_cluster_change(
-    network: &CompactNetwork,
+fn trigger_cluster_change<N: NetworkView>(
+    network: &N,
     clustering: &Clustering,
     work_queue: &mut FullNetworkWorkQueue,
     node: usize,
@@ -267,7 +268,7 @@ fn trigger_cluster_change(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::network::{Edge, LabeledNetwork};
+    use crate::network::{Edge, LabeledNetwork, LabeledNetworkBuilder, NetworkView};
     use crate::resolution;
     use rand::SeedableRng;
     use rand::rngs::SmallRng;

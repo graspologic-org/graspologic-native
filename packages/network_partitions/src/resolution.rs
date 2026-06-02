@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-use crate::network::prelude::*;
-
 pub const DEFAULT_RESOLUTION: f64 = 1_f64;
 
 /// The original implementation of the Leiden enhancement to Louvain used the same quality value
@@ -16,7 +14,7 @@ pub const DEFAULT_RESOLUTION: f64 = 1_f64;
 /// In either case, if the user doesn't specify a resolution, we use a default of 1.0 (though it may be scaled for modularity)
 pub fn adjust_resolution(
     resolution: Option<f64>,
-    network: &CompactNetwork,
+    network: &impl crate::network::network_view::NetworkView,
     use_modularity: bool,
 ) -> f64 {
     let resolution: f64 = resolution.unwrap_or(DEFAULT_RESOLUTION);
