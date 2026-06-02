@@ -22,6 +22,50 @@ use petgraph::visit::EdgeRef;
 
 use crate::network::network_view::{Neighbor, NetworkView};
 
+/// Validation errors for `PetgraphNetworkView` construction.
+#[derive(Debug, Clone)]
+pub enum PetgraphValidationError {
+    /// Node indices are not dense/contiguous (nodes have been removed).
+    NonContiguousNodeIndices { node_count: usize, max_index: usize },
+    /// An edge weight is not finite or is negative.
+    InvalidEdgeWeight {
+        source: usize,
+        target: usize,
+        weight: f64,
+    },
+}
+
+impl std::fmt::Display for PetgraphValidationError {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        match self {
+            Self::NonContiguousNodeIndices {
+                node_count,
+                max_index,
+            } => {
+                write!(
+                    f,
+                    "Node indices are not contiguous: node_count={node_count}, max_index={max_index}"
+                )
+            }
+            Self::InvalidEdgeWeight {
+                source,
+                target,
+                weight,
+            } => {
+                write!(
+                    f,
+                    "Edge ({source}, {target}) has invalid weight: {weight} (must be finite and non-negative)"
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for PetgraphValidationError {}
+
 /// A zero-copy view over a `petgraph::UnGraph<f64, f64>` implementing `NetworkView`.
 ///
 /// Node weights are the graph's node weights, edge weights are the graph's edge weights.
@@ -37,18 +81,22 @@ pub struct PetgraphNetworkView<'a> {
 impl<'a> PetgraphNetworkView<'a> {
     /// Create a new view over the given graph.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the graph has non-contiguous node indices (i.e., nodes have been removed).
-    pub fn new(graph: &'a UnGraph<f64, f64>) -> Self {
-        assert_eq!(
-            graph.node_count(),
-            graph
-                .node_indices()
-                .next_back()
-                .map_or(0, |i| i.index() + 1),
-            "PetgraphNetworkView requires dense contiguous node indices (no removals)"
-        );
+    /// Returns an error if:
+    /// - Node indices are not dense/contiguous (nodes have been removed)
+    /// - Any edge weight is not finite or is negative
+    pub fn new(graph: &'a UnGraph<f64, f64>) -> Result<Self, PetgraphValidationError> {
+        let max_index = graph
+            .node_indices()
+            .next_back()
+            .map_or(0, |i| i.index() + 1);
+        if graph.node_count() != max_index {
+            return Err(PetgraphValidationError::NonContiguousNodeIndices {
+                node_count: graph.node_count(),
+                max_index,
+            });
+        }
 
         let total_node_weight: f64 = graph.node_weights().sum();
 
@@ -58,13 +106,13 @@ impl<'a> PetgraphNetworkView<'a> {
 
         for edge in graph.edge_references() {
             let w = *edge.weight();
-            assert!(
-                w.is_finite() && w >= 0.0,
-                "PetgraphNetworkView requires all edge weights to be finite and non-negative, \
-                 got {w} on edge {:?} -> {:?}",
-                edge.source(),
-                edge.target()
-            );
+            if !w.is_finite() || w < 0.0 {
+                return Err(PetgraphValidationError::InvalidEdgeWeight {
+                    source: edge.source().index(),
+                    target: edge.target().index(),
+                    weight: w,
+                });
+            }
             if edge.source() == edge.target() {
                 total_self_links_edge_weight += w;
                 num_self_loop_edges += 1;
@@ -72,17 +120,14 @@ impl<'a> PetgraphNetworkView<'a> {
                 total_edge_weight += w;
             }
         }
-        // Each undirected edge in petgraph is stored once, but NetworkView convention
-        // counts each undirected edge once (not twice). Self-loops are special.
-        // total_edge_weight here is already the "once" count for non-self edges.
 
-        Self {
+        Ok(Self {
             graph,
             total_node_weight,
             total_edge_weight,
             total_self_links_edge_weight,
             num_non_self_loop_edges: graph.edge_count() - num_self_loop_edges,
-        }
+        })
     }
 }
 
@@ -279,7 +324,7 @@ mod tests {
         g.add_edge(b, c, 1.5);
         g.add_edge(a, c, 2.0);
 
-        let view = PetgraphNetworkView::new(&g);
+        let view = PetgraphNetworkView::new(&g).unwrap();
 
         assert_eq!(view.num_nodes(), 3);
         assert_eq!(view.total_node_weight(), 6.0);
@@ -296,7 +341,7 @@ mod tests {
         g.add_node(2.5);
         g.add_node(3.5);
 
-        let view = PetgraphNetworkView::new(&g);
+        let view = PetgraphNetworkView::new(&g).unwrap();
 
         assert_eq!(view.node_weight(0), 1.5);
         assert_eq!(view.node_weight(1), 2.5);
@@ -312,7 +357,7 @@ mod tests {
         g.add_edge(a, b, 2.0);
         g.add_edge(a, c, 3.0);
 
-        let view = PetgraphNetworkView::new(&g);
+        let view = PetgraphNetworkView::new(&g).unwrap();
 
         let neighbors: Vec<Neighbor> = view.neighbors_for(0).collect();
         assert_eq!(neighbors.len(), 2);
@@ -330,7 +375,7 @@ mod tests {
         g.add_edge(a, b, 1.0);
         g.add_edge(a, a, 0.5); // self-loop
 
-        let view = PetgraphNetworkView::new(&g);
+        let view = PetgraphNetworkView::new(&g).unwrap();
 
         assert_eq!(view.total_self_links_edge_weight(), 0.5);
         assert_eq!(view.total_edge_weight(), 1.0);
@@ -346,7 +391,7 @@ mod tests {
         g.add_edge(b, c, 1.0);
         g.add_edge(a, c, 1.0);
 
-        let view = PetgraphNetworkView::new(&g);
+        let view = PetgraphNetworkView::new(&g).unwrap();
         let compact = view.to_compact_network();
 
         assert_eq!(compact.num_nodes(), 3);
@@ -363,7 +408,7 @@ mod tests {
         g.add_edge(b, c, 1.0);
         g.add_edge(a, c, 1.0);
 
-        let view = PetgraphNetworkView::new(&g);
+        let view = PetgraphNetworkView::new(&g).unwrap();
         let mut rng = SmallRng::seed_from_u64(42);
         let resolution = 0.5;
         let iterations = 2;
@@ -423,7 +468,7 @@ mod tests {
             0.01,
         );
 
-        let view = PetgraphNetworkView::new(&g);
+        let view = PetgraphNetworkView::new(&g).unwrap();
         let mut rng = SmallRng::seed_from_u64(42);
 
         let (_improved, clustering) = leiden_view(
@@ -480,7 +525,7 @@ mod tests {
     #[test]
     fn test_petgraph_leiden_karate_club() {
         let g = karate_club_graph();
-        let view = PetgraphNetworkView::new(&g);
+        let view = PetgraphNetworkView::new(&g).unwrap();
         let mut rng = SmallRng::seed_from_u64(42);
 
         let (_improved, clustering) = leiden_view(
@@ -552,7 +597,7 @@ mod tests {
             0.1,
         );
 
-        let view = PetgraphNetworkView::new(&g);
+        let view = PetgraphNetworkView::new(&g).unwrap();
         let mut rng = SmallRng::seed_from_u64(123);
 
         let (_, clustering) = leiden_view(
@@ -594,7 +639,7 @@ mod tests {
     #[test]
     fn test_petgraph_view_empty_graph() {
         let g: UnGraph<f64, f64> = UnGraph::new_undirected();
-        let view = PetgraphNetworkView::new(&g);
+        let view = PetgraphNetworkView::new(&g).unwrap();
 
         assert_eq!(view.num_nodes(), 0);
         assert_eq!(view.total_node_weight(), 0.0);
@@ -610,7 +655,7 @@ mod tests {
         g.add_node(1.0);
         // No edges
 
-        let view = PetgraphNetworkView::new(&g);
+        let view = PetgraphNetworkView::new(&g).unwrap();
         let mut rng = SmallRng::seed_from_u64(42);
 
         let (_, clustering) = leiden_view(
