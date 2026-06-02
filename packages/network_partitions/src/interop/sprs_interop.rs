@@ -10,12 +10,15 @@
 //!
 //! - The matrix must be square (N×N) representing an undirected graph's adjacency.
 //! - It must be symmetric: `A[i][j] == A[j][i]`.
-//! - Non-zero entries represent edge weights (must be positive and finite).
+//! - Non-zero entries represent edge weights (must be finite and non-negative).
 //! - Diagonal entries represent self-loop weights.
 //! - The matrix must be in CSR (Compressed Sparse Row) format.
 //!
-//! Node weights default to 1.0 for all nodes, but can be supplied via an
-//! optional vector.
+//! # Node weights
+//!
+//! Node weights default to 1.0, which is appropriate for CPM mode. For modularity
+//! mode, callers must supply node weights equal to the weighted degree (sum of
+//! incident non-self-loop edge weights) via [`SprsNetworkView::with_node_weights`].
 
 use sprs::CsMatI;
 
@@ -41,6 +44,8 @@ pub enum SprsValidationError {
     NotCsr,
     /// The node weights vector has the wrong length.
     NodeWeightsLengthMismatch { expected: usize, actual: usize },
+    /// An edge weight is not finite or is negative.
+    InvalidWeight { row: usize, col: usize, value: f64 },
 }
 
 impl std::fmt::Display for SprsValidationError {
@@ -57,6 +62,12 @@ impl std::fmt::Display for SprsValidationError {
                 write!(
                     f,
                     "Node weights length mismatch: expected {expected}, got {actual}"
+                )
+            }
+            Self::InvalidWeight { row, col, value } => {
+                write!(
+                    f,
+                    "Edge weight at ({row}, {col}) is invalid: {value} (must be finite and non-negative)"
                 )
             }
         }
@@ -117,6 +128,13 @@ impl<'a> SprsNetworkView<'a> {
         // Iterate over upper triangle + diagonal to count each edge once
         for (row_idx, row_vec) in matrix.outer_iterator().enumerate() {
             for (col_idx, &val) in row_vec.iter() {
+                if !val.is_finite() || val < 0.0 {
+                    return Err(SprsValidationError::InvalidWeight {
+                        row: row_idx,
+                        col: col_idx,
+                        value: val,
+                    });
+                }
                 if col_idx == row_idx {
                     total_self_links_edge_weight += val;
                 } else if col_idx > row_idx {

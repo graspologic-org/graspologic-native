@@ -248,11 +248,12 @@ fn modularity(
     result.map_err(PyErr::from)
 }
 
-/// Run Leiden community detection directly on a scipy.sparse.csr_matrix (zero-copy).
+/// Run Leiden community detection directly on a scipy.sparse.csr_matrix.
 ///
 /// This function accepts the raw CSR components (indptr, indices, data) from a scipy sparse
-/// matrix and runs the Leiden algorithm without copying the graph data. The initial local
-/// moving phase operates directly on the borrowed numpy memory.
+/// matrix and runs the Leiden algorithm with zero-copy access to the input graph. The initial
+/// local moving phase operates directly on the borrowed numpy memory; recursive aggregation
+/// and quality scoring internally materialize a compact representation.
 ///
 /// The input matrix must represent an undirected graph (symmetric adjacency matrix).
 /// Node IDs are integer indices from 0 to n_nodes-1.

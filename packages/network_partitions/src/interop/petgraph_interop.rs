@@ -8,9 +8,11 @@
 //!
 //! # Graph conventions
 //!
-//! - **Node weights** (`f64`): The weight of each node. If you don't need node
-//!   weights, use `1.0` for all nodes.
-//! - **Edge weights** (`f64`): The weight of each undirected edge.
+//! - **Node weights** (`f64`): Used as `NetworkView::node_weight()`. For modularity
+//!   mode, callers must set node weights to the weighted degree (sum of incident
+//!   non-self-loop edge weights). For CPM mode, use `1.0` for all nodes.
+//! - **Edge weights** (`f64`): The weight of each undirected edge. Must be finite
+//!   and non-negative.
 //! - **Node indices**: Must be dense and contiguous starting from 0. This is
 //!   naturally the case for graphs built with `add_node()` and no removals.
 //! - **Self-loops**: Supported and counted toward `total_self_links_edge_weight`.
@@ -56,6 +58,13 @@ impl<'a> PetgraphNetworkView<'a> {
 
         for edge in graph.edge_references() {
             let w = *edge.weight();
+            assert!(
+                w.is_finite() && w >= 0.0,
+                "PetgraphNetworkView requires all edge weights to be finite and non-negative, \
+                 got {w} on edge {:?} -> {:?}",
+                edge.source(),
+                edge.target()
+            );
             if edge.source() == edge.target() {
                 total_self_links_edge_weight += w;
                 num_self_loop_edges += 1;
