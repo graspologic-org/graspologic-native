@@ -8,6 +8,7 @@ Some functionality is best served compiled into a native Python extension module
 
 - Rust stable (edition 2024)
 - Python 3.9+
+- [uv](https://github.com/astral-sh/uv)
 - 64-bit operating system
 
 ## Published Versions
@@ -21,17 +22,24 @@ If the published wheels don't match your platform, or you want to build from sou
 ```bash
 git clone git@github.com:graspologic-org/graspologic-native.git
 cd graspologic-native/packages/pyo3
-pip install maturin
-maturin build --release
+uv build
 ```
 
-The output wheel will be in `target/wheels/`.
+The output wheel will be in `dist/`.
 
-Alternatively, using [uv](https://github.com/astral-sh/uv):
+To install in a local virtual environment for development:
 
 ```bash
-cd graspologic-native
-uv build packages/pyo3
+cd graspologic-native/packages/pyo3
+uv sync
+uv pip install -e .
+```
+
+## Testing
+
+```bash
+cd packages/pyo3
+uv run python -m unittest
 ```
 
 ## Contributing
