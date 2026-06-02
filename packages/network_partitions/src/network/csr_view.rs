@@ -21,7 +21,11 @@ pub enum CsrValidationError {
     /// The last entry of `indptr` must equal `indices.len()`.
     IndptrFinalMismatch { indptr_last: usize, nnz: usize },
     /// A neighbor index is out of bounds.
-    IndexOutOfBounds { row: usize, neighbor_id: usize, num_nodes: usize },
+    IndexOutOfBounds {
+        row: usize,
+        neighbor_id: usize,
+        num_nodes: usize,
+    },
     /// A weight is not finite or is negative.
     InvalidWeight { row: usize, position: usize },
     /// Node weights length doesn't match num_nodes.
@@ -29,12 +33,18 @@ pub enum CsrValidationError {
 }
 
 impl std::fmt::Display for CsrValidationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         match self {
             Self::InvalidIndptrLength { expected, actual } => {
                 write!(f, "indptr length {actual} != num_nodes + 1 ({expected})")
             }
-            Self::IndicesDataLengthMismatch { indices_len, data_len } => {
+            Self::IndicesDataLengthMismatch {
+                indices_len,
+                data_len,
+            } => {
                 write!(f, "indices length {indices_len} != data length {data_len}")
             }
             Self::IndptrNotMonotonic { position } => {
@@ -43,11 +53,21 @@ impl std::fmt::Display for CsrValidationError {
             Self::IndptrFinalMismatch { indptr_last, nnz } => {
                 write!(f, "indptr last value {indptr_last} != nnz {nnz}")
             }
-            Self::IndexOutOfBounds { row, neighbor_id, num_nodes } => {
-                write!(f, "row {row}: neighbor id {neighbor_id} >= num_nodes {num_nodes}")
+            Self::IndexOutOfBounds {
+                row,
+                neighbor_id,
+                num_nodes,
+            } => {
+                write!(
+                    f,
+                    "row {row}: neighbor id {neighbor_id} >= num_nodes {num_nodes}"
+                )
             }
             Self::InvalidWeight { row, position } => {
-                write!(f, "row {row}: non-finite or negative weight at position {position}")
+                write!(
+                    f,
+                    "row {row}: non-finite or negative weight at position {position}"
+                )
             }
             Self::NodeWeightsLengthMismatch { expected, actual } => {
                 write!(f, "node_weights length {actual} != num_nodes {expected}")
@@ -223,17 +243,26 @@ impl Iterator for CsrNeighborIterator<'_> {
 impl ExactSizeIterator for CsrNeighborIterator<'_> {}
 
 impl<'a> NetworkView for CsrNetworkView<'a> {
-    type Neighbors<'b> = CsrNeighborIterator<'b> where Self: 'b;
+    type Neighbors<'b>
+        = CsrNeighborIterator<'b>
+    where
+        Self: 'b;
 
     fn num_nodes(&self) -> usize {
         self.indptr.len() - 1
     }
 
-    fn node_weight(&self, node_id: usize) -> f64 {
+    fn node_weight(
+        &self,
+        node_id: usize,
+    ) -> f64 {
         self.node_weights[node_id]
     }
 
-    fn neighbors_for(&self, node_id: usize) -> Self::Neighbors<'_> {
+    fn neighbors_for(
+        &self,
+        node_id: usize,
+    ) -> Self::Neighbors<'_> {
         let start = self.indptr[node_id];
         let end = self.indptr[node_id + 1];
         CsrNeighborIterator {
@@ -327,7 +356,10 @@ mod tests {
         let node_weights = vec![1.0, 1.0, 1.0];
 
         let result = CsrNetworkView::new(&indptr, &indices, &data, &node_weights);
-        assert!(matches!(result, Err(CsrValidationError::IndptrNotMonotonic { position: 2 })));
+        assert!(matches!(
+            result,
+            Err(CsrValidationError::IndptrNotMonotonic { position: 2 })
+        ));
     }
 
     #[test]
@@ -340,7 +372,11 @@ mod tests {
         let result = CsrNetworkView::new(&indptr, &indices, &data, &node_weights);
         assert!(matches!(
             result,
-            Err(CsrValidationError::IndexOutOfBounds { row: 0, neighbor_id: 5, num_nodes: 3 })
+            Err(CsrValidationError::IndexOutOfBounds {
+                row: 0,
+                neighbor_id: 5,
+                num_nodes: 3
+            })
         ));
     }
 
@@ -352,7 +388,10 @@ mod tests {
         let node_weights = vec![2.0, 2.0, 2.0];
 
         let result = CsrNetworkView::new(&indptr, &indices, &data, &node_weights);
-        assert!(matches!(result, Err(CsrValidationError::InvalidWeight { row: 0, .. })));
+        assert!(matches!(
+            result,
+            Err(CsrValidationError::InvalidWeight { row: 0, .. })
+        ));
     }
 
     #[test]

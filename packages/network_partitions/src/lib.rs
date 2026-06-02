@@ -3,6 +3,7 @@
 
 pub mod clustering;
 pub mod errors;
+pub mod interop;
 pub mod leiden;
 pub mod network;
 pub mod quality;

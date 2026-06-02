@@ -189,10 +189,9 @@ impl CompactNetwork {
 
     pub fn total_edge_weight_per_node(&self) -> Vec<f64> {
         // when using modularity, this should return the exact same as node_weights.
-        self.nodes
-            .iter()
-            .map(|(_, node_id)| {
-                self.neighbors_for(*node_id)
+        (0..self.nodes.len())
+            .map(|node_id| {
+                self.neighbors_for(node_id)
                     .map(|neighbor| neighbor.edge_weight)
                     .sum::<f64>()
             })
@@ -462,11 +461,17 @@ impl super::network_view::NetworkView for CompactNetwork {
         self.nodes.len()
     }
 
-    fn node_weight(&self, node_id: usize) -> f64 {
+    fn node_weight(
+        &self,
+        node_id: usize,
+    ) -> f64 {
         self.nodes[node_id].0
     }
 
-    fn neighbors_for(&self, node_id: usize) -> Self::Neighbors<'_> {
+    fn neighbors_for(
+        &self,
+        node_id: usize,
+    ) -> Self::Neighbors<'_> {
         CompactNeighborViewIterator {
             inner: CompactNetwork::neighbors_for(self, node_id),
         }
@@ -477,7 +482,11 @@ impl super::network_view::NetworkView for CompactNetwork {
     }
 
     fn total_edge_weight(&self) -> f64 {
-        self.neighbors.iter().map(|neighbor| neighbor.1).sum::<f64>() / 2_f64
+        self.neighbors
+            .iter()
+            .map(|neighbor| neighbor.1)
+            .sum::<f64>()
+            / 2_f64
     }
 
     fn total_self_links_edge_weight(&self) -> f64 {

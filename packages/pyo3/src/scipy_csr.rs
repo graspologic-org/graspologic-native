@@ -127,7 +127,10 @@ impl<'a> ScipyCsrView<'a> {
     }
 
     #[inline]
-    fn row_range(&self, node: usize) -> (usize, usize) {
+    fn row_range(
+        &self,
+        node: usize,
+    ) -> (usize, usize) {
         let start = self.indptr[node] as usize;
         let end = self.indptr[node + 1] as usize;
         (start, end)
@@ -171,7 +174,10 @@ impl Iterator for ScipyCsrNeighborIterator<'_> {
 impl ExactSizeIterator for ScipyCsrNeighborIterator<'_> {}
 
 impl<'a> NetworkView for ScipyCsrView<'a> {
-    type Neighbors<'b> = ScipyCsrNeighborIterator<'b> where Self: 'b;
+    type Neighbors<'b>
+        = ScipyCsrNeighborIterator<'b>
+    where
+        Self: 'b;
 
     #[inline]
     fn num_nodes(&self) -> usize {
@@ -179,12 +185,18 @@ impl<'a> NetworkView for ScipyCsrView<'a> {
     }
 
     #[inline]
-    fn node_weight(&self, node_id: usize) -> f64 {
+    fn node_weight(
+        &self,
+        node_id: usize,
+    ) -> f64 {
         self.node_weights[node_id]
     }
 
     #[inline]
-    fn neighbors_for(&self, node_id: usize) -> Self::Neighbors<'_> {
+    fn neighbors_for(
+        &self,
+        node_id: usize,
+    ) -> Self::Neighbors<'_> {
         let (start, end) = self.row_range(node_id);
         ScipyCsrNeighborIterator {
             indices: self.indices,

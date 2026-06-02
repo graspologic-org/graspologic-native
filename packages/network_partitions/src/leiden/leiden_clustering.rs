@@ -234,8 +234,7 @@ where
 
     clustering.reset_next_cluster_id();
 
-    let mut num_nodes_per_cluster_induced_network: Vec<usize> =
-        Vec::with_capacity(num_subnetworks);
+    let mut num_nodes_per_cluster_induced_network: Vec<usize> = Vec::with_capacity(num_subnetworks);
     let max_subnetwork_size: u64 = *num_nodes_per_cluster.iter().max().unwrap();
     let mut subnetwork_clusterer =
         SubnetworkClusteringGenerator::with_capacity(max_subnetwork_size as usize);
@@ -251,14 +250,13 @@ where
         } else if item.subnetwork.num_nodes() == 0 {
             panic!("No node network, which shouldn't have happened");
         } else {
-            let subnetwork_clustering: Clustering = subnetwork_clusterer
-                .subnetwork_clustering(
-                    item.subnetwork.compact(),
-                    use_modularity,
-                    adjusted_resolution,
-                    randomness,
-                    rng,
-                )?;
+            let subnetwork_clustering: Clustering = subnetwork_clusterer.subnetwork_clustering(
+                item.subnetwork.compact(),
+                use_modularity,
+                adjusted_resolution,
+                randomness,
+                rng,
+            )?;
             num_nodes_per_cluster_induced_network.push(subnetwork_clustering.next_cluster_id());
             clustering.merge_subnetwork_clustering(&item.subnetwork, &subnetwork_clustering);
         }

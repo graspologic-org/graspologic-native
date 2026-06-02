@@ -23,17 +23,26 @@ pub struct LabeledNetwork<T> {
 }
 
 impl<T> NetworkView for LabeledNetwork<T> {
-    type Neighbors<'a> = CompactNeighborViewIterator<'a> where Self: 'a;
+    type Neighbors<'a>
+        = CompactNeighborViewIterator<'a>
+    where
+        Self: 'a;
 
     fn num_nodes(&self) -> usize {
         self.network_structure.num_nodes()
     }
 
-    fn node_weight(&self, node_id: usize) -> f64 {
+    fn node_weight(
+        &self,
+        node_id: usize,
+    ) -> f64 {
         self.network_structure.node_weight(node_id)
     }
 
-    fn neighbors_for(&self, node_id: usize) -> Self::Neighbors<'_> {
+    fn neighbors_for(
+        &self,
+        node_id: usize,
+    ) -> Self::Neighbors<'_> {
         NetworkView::neighbors_for(&self.network_structure, node_id)
     }
 

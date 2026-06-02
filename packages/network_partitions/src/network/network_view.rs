@@ -35,10 +35,16 @@ pub trait NetworkView {
     fn num_nodes(&self) -> usize;
 
     /// The weight of a specific node.
-    fn node_weight(&self, node_id: usize) -> f64;
+    fn node_weight(
+        &self,
+        node_id: usize,
+    ) -> f64;
 
     /// An iterator over the neighbors of a given node.
-    fn neighbors_for(&self, node_id: usize) -> Self::Neighbors<'_>;
+    fn neighbors_for(
+        &self,
+        node_id: usize,
+    ) -> Self::Neighbors<'_>;
 
     /// The total weight across all nodes.
     fn total_node_weight(&self) -> f64;

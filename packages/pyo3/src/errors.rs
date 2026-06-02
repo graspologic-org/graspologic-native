@@ -80,9 +80,7 @@ impl From<PyLeidenError> for PyErr {
                     PyLeidenError::InternalNetworkIndexingError
                 ))
             }
-            PyLeidenError::ParameterRangeError(msg) => {
-                PyErr::new::<ParameterRangeError, _>(msg)
-            }
+            PyLeidenError::ParameterRangeError(msg) => PyErr::new::<ParameterRangeError, _>(msg),
             PyLeidenError::UnsafeInducementError => PyErr::new::<UnsafeInducementError, _>(
                 format!("{:?}", PyLeidenError::UnsafeInducementError),
             ),
