@@ -29,6 +29,7 @@ pub struct PetgraphNetworkView<'a> {
     total_node_weight: f64,
     total_edge_weight: f64,
     total_self_links_edge_weight: f64,
+    num_non_self_loop_edges: usize,
 }
 
 impl<'a> PetgraphNetworkView<'a> {
@@ -51,11 +52,13 @@ impl<'a> PetgraphNetworkView<'a> {
 
         let mut total_edge_weight = 0.0;
         let mut total_self_links_edge_weight = 0.0;
+        let mut num_self_loop_edges = 0usize;
 
         for edge in graph.edge_references() {
             let w = *edge.weight();
             if edge.source() == edge.target() {
                 total_self_links_edge_weight += w;
+                num_self_loop_edges += 1;
             } else {
                 total_edge_weight += w;
             }
@@ -69,6 +72,7 @@ impl<'a> PetgraphNetworkView<'a> {
             total_node_weight,
             total_edge_weight,
             total_self_links_edge_weight,
+            num_non_self_loop_edges: graph.edge_count() - num_self_loop_edges,
         }
     }
 }
@@ -84,18 +88,23 @@ impl<'a> Iterator for PetgraphNeighborIterator<'a> {
     type Item = Neighbor;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.edges.next().map(|edge_ref| {
+        loop {
+            let edge_ref = self.edges.next()?;
             let target = if edge_ref.source() == self.source {
                 edge_ref.target()
             } else {
                 edge_ref.source()
             };
-            Neighbor {
+            // Skip self-loops per NetworkView contract
+            if target == self.source {
+                continue;
+            }
+            return Some(Neighbor {
                 id: target.index(),
                 edge_weight: *edge_ref.weight(),
                 node_weight: self.graph[target],
-            }
-        })
+            });
+        }
     }
 }
 
@@ -141,7 +150,7 @@ impl<'a> NetworkView for PetgraphNetworkView<'a> {
     }
 
     fn num_edges(&self) -> usize {
-        self.graph.edge_count()
+        self.num_non_self_loop_edges
     }
 }
 

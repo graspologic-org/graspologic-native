@@ -136,33 +136,38 @@ impl<'a> SprsNetworkView<'a> {
 }
 
 /// Iterator over neighbors of a node in an sprs CSR matrix.
+/// Skips self-loop entries (where neighbor_id == source node).
 pub struct SprsNeighborIterator<'a> {
     indices: &'a [usize],
     data: &'a [f64],
     pos: usize,
     end: usize,
     node_weights: Option<&'a [f64]>,
+    source_node: usize,
 }
 
 impl<'a> Iterator for SprsNeighborIterator<'a> {
     type Item = Neighbor;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.pos >= self.end {
-            return None;
+        while self.pos < self.end {
+            let col_idx = self.indices[self.pos];
+            let edge_weight = self.data[self.pos];
+            self.pos += 1;
+            if col_idx == self.source_node {
+                continue; // skip self-loops
+            }
+            let node_weight = match self.node_weights {
+                Some(nw) => nw[col_idx],
+                None => 1.0,
+            };
+            return Some(Neighbor {
+                id: col_idx,
+                edge_weight,
+                node_weight,
+            });
         }
-        let col_idx = self.indices[self.pos];
-        let edge_weight = self.data[self.pos];
-        self.pos += 1;
-        let node_weight = match self.node_weights {
-            Some(nw) => nw[col_idx],
-            None => 1.0,
-        };
-        Some(Neighbor {
-            id: col_idx,
-            edge_weight,
-            node_weight,
-        })
+        None
     }
 }
 
@@ -199,6 +204,7 @@ impl<'a> NetworkView for SprsNetworkView<'a> {
             pos: start,
             end,
             node_weights: self.node_weights,
+            source_node: node_id,
         }
     }
 
@@ -225,7 +231,8 @@ impl<'a> NetworkView for SprsNetworkView<'a> {
                 indices[range].contains(&i)
             })
             .count();
-        (nnz - diag_nnz) / 2 + diag_nnz
+        // Exclude self-loops: only count non-diagonal entries, halved for undirected
+        (nnz - diag_nnz) / 2
     }
 }
 
@@ -627,7 +634,7 @@ mod tests {
         let mat = symmetric_csr(4, &[(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0), (0, 0, 0.5)]);
         let view = SprsNetworkView::new(&mat).unwrap();
 
-        // 3 undirected edges + 1 self-loop = 4 "edges"
-        assert_eq!(view.num_edges(), 4);
+        // 3 undirected non-self-loop edges (self-loops excluded from num_edges)
+        assert_eq!(view.num_edges(), 3);
     }
 }

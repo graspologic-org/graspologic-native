@@ -187,7 +187,7 @@ pub fn leiden_csr(
         ));
     }
 
-    let csr_view = ScipyCsrView::new(indptr, indices, data, n_nodes)
+    let csr_view = ScipyCsrView::new(indptr, indices, data, n_nodes, use_modularity)
         .map_err(|e| PyLeidenError::ParameterRangeError(format!("CSR validation failed: {e}")))?;
 
     let mut rng: SmallRng = match seed {

@@ -26,16 +26,23 @@ pub struct ScipyCsrView<'a> {
     data: &'a [f64],
     /// Number of nodes.
     n_nodes: usize,
-    /// Precomputed sum of weights per row (node weights for modularity).
+    /// Precomputed node weights.
     node_weights: Vec<f64>,
-    /// Total edge weight (sum of all data / 2 for undirected).
+    /// Total edge weight (sum of non-self-loop weights / 2 for undirected).
     total_edge_weight: f64,
     /// Total self-link edge weight.
     total_self_links_weight: f64,
+    /// Number of undirected non-self-loop edges.
+    num_edges: usize,
 }
 
 impl<'a> ScipyCsrView<'a> {
     /// Create a graph view from scipy CSR components.
+    ///
+    /// # Arguments
+    /// - `use_modularity`: if true, node weights are set to the sum of incident
+    ///   non-self-loop edge weights (modularity convention). If false, node weights
+    ///   are all 1.0 (CPM convention).
     ///
     /// # Requirements
     /// - `indptr` length must be `n_nodes + 1`
@@ -43,12 +50,14 @@ impl<'a> ScipyCsrView<'a> {
     /// - `indptr` values must be non-negative and non-decreasing
     /// - All values in `indices` must be in `[0, n_nodes)`
     /// - `indices` and `data` must have the same length (`indptr[n_nodes]` elements)
+    /// - All weights must be finite and non-negative
     /// - The matrix should be symmetric (both directions stored) for undirected graphs
     pub fn new(
         indptr: &'a [i64],
         indices: &'a [i32],
         data: &'a [f64],
         n_nodes: usize,
+        use_modularity: bool,
     ) -> Result<Self, String> {
         if indptr.len() != n_nodes + 1 {
             return Err(format!(
@@ -93,10 +102,13 @@ impl<'a> ScipyCsrView<'a> {
             }
         }
 
-        // Compute node weights (row sums excluding self-loops) and totals — O(nnz)
+        // Compute node weights and totals — O(nnz)
+        // For modularity: node_weight = sum of incident non-self-loop edge weights
+        // For CPM: node_weight = 1.0
         let mut node_weights = vec![0.0_f64; n_nodes];
         let mut total = 0.0_f64;
         let mut total_self_links = 0.0_f64;
+        let mut num_diag_entries = 0usize;
 
         for node in 0..n_nodes {
             let start = indptr[node] as usize;
@@ -111,16 +123,19 @@ impl<'a> ScipyCsrView<'a> {
                 }
                 if indices[pos] as usize == node {
                     total_self_links += weight;
+                    num_diag_entries += 1;
                 } else {
                     row_sum += weight;
                 }
             }
-            node_weights[node] = row_sum;
+            node_weights[node] = if use_modularity { row_sum } else { 1.0 };
             total += row_sum;
         }
 
         // Each undirected non-self edge is stored twice; halve for the true total.
         let total_edge_weight = total / 2.0;
+        let nnz = indptr[n_nodes] as usize;
+        let num_edges = (nnz - num_diag_entries) / 2;
 
         Ok(Self {
             indptr,
@@ -130,6 +145,7 @@ impl<'a> ScipyCsrView<'a> {
             node_weights,
             total_edge_weight,
             total_self_links_weight: total_self_links,
+            num_edges,
         })
     }
 
@@ -228,7 +244,7 @@ impl<'a> NetworkView for ScipyCsrView<'a> {
     }
 
     fn num_edges(&self) -> usize {
-        self.indptr[self.n_nodes] as usize / 2
+        self.num_edges
     }
 
     fn node_weights(&self) -> Vec<f64> {

@@ -105,6 +105,7 @@ pub struct CsrNetworkView<'a> {
     cached_total_node_weight: f64,
     cached_total_edge_weight: f64,
     cached_total_self_links_weight: f64,
+    cached_num_edges: usize,
 }
 
 impl<'a> CsrNetworkView<'a> {
@@ -161,6 +162,7 @@ impl<'a> CsrNetworkView<'a> {
         // Validate indices and weights, compute totals
         let mut total_edge_weight: f64 = 0.0;
         let mut total_self_links_weight: f64 = 0.0;
+        let mut num_diag_entries: usize = 0;
 
         for row in 0..num_nodes {
             let start = indptr[row];
@@ -181,6 +183,7 @@ impl<'a> CsrNetworkView<'a> {
                 total_edge_weight += weight;
                 if neighbor_id == row {
                     total_self_links_weight += weight;
+                    num_diag_entries += 1;
                 }
             }
         }
@@ -190,6 +193,7 @@ impl<'a> CsrNetworkView<'a> {
         total_edge_weight = (total_edge_weight - total_self_links_weight) / 2.0;
 
         let cached_total_node_weight: f64 = node_weights.iter().sum();
+        let cached_num_edges = (indices.len() - num_diag_entries) / 2;
 
         Ok(CsrNetworkView {
             indptr,
@@ -199,6 +203,7 @@ impl<'a> CsrNetworkView<'a> {
             cached_total_node_weight,
             cached_total_edge_weight: total_edge_weight,
             cached_total_self_links_weight: total_self_links_weight,
+            cached_num_edges,
         })
     }
 
@@ -287,7 +292,7 @@ impl<'a> NetworkView for CsrNetworkView<'a> {
     }
 
     fn num_edges(&self) -> usize {
-        self.indices.len() / 2
+        self.cached_num_edges
     }
 
     fn node_weights(&self) -> Vec<f64> {
