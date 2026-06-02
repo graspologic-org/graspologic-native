@@ -682,7 +682,10 @@ mod tests {
 
         assert!(!improved, "Zero iterations should not improve anything");
         // Each node stays in its own singleton cluster
-        assert_eq!(clustering_zero.next_cluster_id(), labeled_network.num_nodes());
+        assert_eq!(
+            clustering_zero.next_cluster_id(),
+            labeled_network.num_nodes()
+        );
     }
 
     #[test]
