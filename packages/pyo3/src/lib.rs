@@ -5,9 +5,11 @@
 
 mod errors;
 mod mediator;
+mod scipy_csr;
 
 use std::collections::{HashMap, HashSet};
 
+use numpy::PyReadonlyArray1;
 use pyo3::PyTypeInfo;
 use pyo3::prelude::*;
 
@@ -246,6 +248,78 @@ fn modularity(
     result.map_err(PyErr::from)
 }
 
+/// Run Leiden community detection directly on a scipy.sparse.csr_matrix (zero-copy).
+///
+/// This function accepts the raw CSR components (indptr, indices, data) from a scipy sparse
+/// matrix and runs the Leiden algorithm without copying the graph data. The initial local
+/// moving phase operates directly on the borrowed numpy memory.
+///
+/// The input matrix must represent an undirected graph (symmetric adjacency matrix).
+/// Node IDs are integer indices from 0 to n_nodes-1.
+///
+/// :param indptr: The index pointer array from the CSR matrix (int64, length n_nodes+1).
+/// :type indptr: numpy.ndarray[numpy.int64]
+/// :param indices: The column indices array from the CSR matrix (int32).
+/// :type indices: numpy.ndarray[numpy.int32]
+/// :param data: The edge weight data array from the CSR matrix (float64).
+/// :type data: numpy.ndarray[numpy.float64]
+/// :param int n_nodes: The number of nodes in the graph.
+/// :param float resolution: Default is `1.0`. Higher resolution values lead to more communities
+///     and lower resolution values leads to fewer communities. Must be greater than 0.
+/// :param float randomness: Default is `0.001`. The larger the randomness value, the more
+///     exploration of the partition space is possible.
+/// :param int iterations: Default is `1`. Number of times to run the full Leiden algorithm.
+/// :param bool use_modularity: Default is `True`. Whether to use modularity or CPM.
+/// :param Optional[int] seed: Default is `None`. Random seed for reproducibility.
+/// :param int trials: Default is `1`. Number of independent runs, returning the best result.
+/// :param Optional[int] max_outer_iterations: Default is `None`. Limits recursion depth.
+/// :param Optional[int] max_local_moving_iterations: Default is `None`. Limits local moving sweeps.
+/// :return: The quality score and a dictionary mapping node ID (int) to community ID (int).
+/// :rtype: Tuple[float, Dict[int, int]]
+/// :raises ParameterRangeError: If CSR validation fails or parameters are out of range.
+#[pyfunction]
+#[pyo3(signature=(/, indptr, indices, data, n_nodes, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, seed=None, trials=1, max_outer_iterations=None, max_local_moving_iterations=None))]
+fn leiden_csr<'py>(
+    py: Python<'py>,
+    indptr: PyReadonlyArray1<'py, i64>,
+    indices: PyReadonlyArray1<'py, i32>,
+    data: PyReadonlyArray1<'py, f64>,
+    n_nodes: usize,
+    resolution: f64,
+    randomness: f64,
+    iterations: usize,
+    use_modularity: bool,
+    seed: Option<u64>,
+    trials: u64,
+    max_outer_iterations: Option<u32>,
+    max_local_moving_iterations: Option<u32>,
+) -> PyResult<(f64, HashMap<usize, usize>)> {
+    let indptr_slice = indptr.as_slice()?;
+    let indices_slice = indices.as_slice()?;
+    let data_slice = data.as_slice()?;
+
+    // Release the GIL for the compute phase.
+    // Safety: numpy arrays are borrowed immutably and held alive by the Python caller's
+    // stack frame. They cannot be freed or mutated while this function is executing.
+    let result = py.detach(move || {
+        mediator::leiden_csr(
+            indptr_slice,
+            indices_slice,
+            data_slice,
+            n_nodes,
+            resolution,
+            randomness,
+            iterations,
+            use_modularity,
+            seed,
+            trials,
+            max_outer_iterations,
+            max_local_moving_iterations,
+        )
+    });
+    result.map_err(PyErr::from)
+}
+
 /// graspologic_native currently supports global network partitioning via the Leiden University
 /// algorithm described by https://arxiv.org/abs/1810.08473
 #[pymodule]
@@ -255,6 +329,7 @@ fn graspologic_native(
 ) -> PyResult<()> {
     module.add_class::<HierarchicalCluster>()?;
     module.add_wrapped(wrap_pyfunction!(leiden))?;
+    module.add_wrapped(wrap_pyfunction!(leiden_csr))?;
     module.add_wrapped(wrap_pyfunction!(hierarchical_leiden))?;
     module.add_wrapped(wrap_pyfunction!(modularity))?;
 
