@@ -72,6 +72,13 @@ where
     let randomness: f64 = randomness.unwrap_or(subnetwork::DEFAULT_RANDOMNESS);
     let max_local: u32 = max_local_moving_iterations.unwrap_or(0);
 
+    // max_outer_iterations overrides iterations if provided.
+    // Each outer iteration runs: LM → refine → aggregate → recurse-to-convergence.
+    let outer_limit: usize = match max_outer_iterations {
+        Some(n) => n as usize,
+        None => iterations,
+    };
+
     let adjusted_resolution: f64 = adjust_resolution(resolution, network, use_modularity);
 
     if randomness <= 0_f64 || adjusted_resolution <= 0_f64 {
@@ -87,7 +94,7 @@ where
 
     let mut improved: bool = false;
 
-    for _i in 0..iterations {
+    for _i in 0..outer_limit {
         improved |= improve_clustering(
             network,
             &mut clustering,
@@ -95,7 +102,7 @@ where
             adjusted_resolution,
             randomness,
             rng,
-            max_outer_iterations,
+            None,
             max_local,
         )?;
     }
@@ -128,6 +135,12 @@ where
     let randomness: f64 = randomness.unwrap_or(subnetwork::DEFAULT_RANDOMNESS);
     let max_local: u32 = max_local_moving_iterations.unwrap_or(0);
 
+    // max_outer_iterations overrides iterations if provided.
+    let outer_limit: usize = match max_outer_iterations {
+        Some(n) => n as usize,
+        None => iterations,
+    };
+
     let adjusted_resolution: f64 = adjust_resolution(resolution, network, use_modularity);
 
     if randomness <= 0_f64 || adjusted_resolution <= 0_f64 {
@@ -144,7 +157,7 @@ where
 
     let mut improved: bool = false;
 
-    for _i in 0..iterations {
+    for _i in 0..outer_limit {
         improved |= improve_clustering_view(
             network,
             &mut clustering,
@@ -152,7 +165,7 @@ where
             adjusted_resolution,
             randomness,
             rng,
-            max_outer_iterations,
+            None,
             max_local,
         )?;
     }
@@ -168,7 +181,7 @@ fn improve_clustering_view<N, T>(
     adjusted_resolution: f64,
     randomness: f64,
     rng: &mut T,
-    max_outer_iterations: Option<u32>,
+    _max_outer_iterations: Option<u32>,
     max_local_moving_iterations: u32,
 ) -> Result<bool, CoreError>
 where
@@ -184,19 +197,10 @@ where
         max_local_moving_iterations,
     )?;
 
-    // Recurse if clusters were formed and recursion budget allows.
-    // None = unlimited; Some(0) = no more recursion; Some(n) = n levels remaining.
-    let should_recurse = match max_outer_iterations {
-        None => true,
-        Some(0) => false,
-        Some(_) => true,
-    };
-
-    if clustering.next_cluster_id() < network.num_nodes() && should_recurse {
-        // Recursion needed: materialize to CompactNetwork and delegate
+    if clustering.next_cluster_id() < network.num_nodes() {
+        // Recursion needed: materialize to CompactNetwork and delegate.
+        // Inner aggregation always runs to convergence (None = unlimited).
         let compact_network = network.to_compact_network();
-
-        let next_max_outer = max_outer_iterations.map(|n| n.saturating_sub(1));
 
         improved |= improve_clustering_recursive(
             &compact_network,
@@ -205,7 +209,6 @@ where
             adjusted_resolution,
             randomness,
             rng,
-            next_max_outer,
             max_local_moving_iterations,
         )?;
     }
@@ -213,6 +216,9 @@ where
 }
 
 /// Recursive aggregation phase — always operates on CompactNetwork.
+/// This always recurses to convergence (the induced network is aggregated
+/// repeatedly until it stops shrinking). This is the inner loop within
+/// a single outer iteration.
 fn improve_clustering_recursive<T>(
     network: &CompactNetwork,
     clustering: &mut Clustering,
@@ -220,7 +226,6 @@ fn improve_clustering_recursive<T>(
     adjusted_resolution: f64,
     randomness: f64,
     rng: &mut T,
-    max_outer_iterations: Option<u32>,
     max_local_moving_iterations: u32,
 ) -> Result<bool, CoreError>
 where
@@ -271,16 +276,29 @@ where
     );
 
     let mut improved = false;
-    improved |= improve_clustering(
-        &induced_clustering_network,
-        &mut induced_network_clustering,
-        use_modularity,
-        adjusted_resolution,
-        randomness,
-        rng,
-        max_outer_iterations,
-        max_local_moving_iterations,
-    )?;
+
+    if induced_clustering_network.num_nodes() < network.num_nodes() {
+        // Induced network is smaller — recurse to convergence.
+        improved |= improve_clustering(
+            &induced_clustering_network,
+            &mut induced_network_clustering,
+            use_modularity,
+            adjusted_resolution,
+            randomness,
+            rng,
+            None, // inner aggregation always recurses to convergence
+            max_local_moving_iterations,
+        )?;
+    } else {
+        // No shrinkage — one final LM pass without further recursion.
+        improved |= full_network_clustering::full_network_clustering(
+            &induced_clustering_network,
+            &mut induced_network_clustering,
+            adjusted_resolution,
+            rng,
+            max_local_moving_iterations,
+        )?;
+    }
     clustering.merge_clustering(&induced_network_clustering);
 
     Ok(improved)
@@ -327,7 +345,7 @@ fn improve_clustering<T>(
     adjusted_resolution: f64,
     randomness: f64,
     rng: &mut T,
-    max_outer_iterations: Option<u32>,
+    _max_outer_iterations: Option<u32>,
     max_local_moving_iterations: u32,
 ) -> Result<bool, CoreError>
 where
@@ -342,15 +360,7 @@ where
         max_local_moving_iterations,
     )?;
 
-    // Recurse if clusters were formed and recursion budget allows.
-    // None = unlimited; Some(0) = no more recursion; Some(n) = n levels remaining.
-    let should_recurse = match max_outer_iterations {
-        None => true,
-        Some(0) => false,
-        Some(_) => true,
-    };
-
-    if clustering.next_cluster_id() < network.num_nodes() && should_recurse {
+    if clustering.next_cluster_id() < network.num_nodes() {
         // given the updated clustering, generate subnetworks for each cluster comprised solely of the
         // nodes in that cluster, then fast, low-fidelity cluster the subnetworks, merging the results
         // back into the primary clustering before returning
@@ -370,19 +380,13 @@ where
 
         for item in subnetworks_iterator {
             if num_nodes_per_cluster[item.id] == 1 && item.subnetwork.num_nodes() == 0 {
-                // this is a singleton cluster, and cannot move from what it previously was.
-                // the subnetwork actually has no information about the nodes in it, because we don't
-                // store nodes without neighbors in the network objects, so instead we need to ask the iterator
-                // for some internal state
                 let single_node_vec: &Vec<CompactNodeId> = &nodes_by_cluster[item.id];
-                // manually merge this into the clustering object with the right value
                 let singleton_node: &usize = single_node_vec
                     .first()
                     .expect("There should be one node here");
                 clustering.update_cluster_at(*singleton_node, clustering.next_cluster_id())?;
                 num_nodes_per_cluster_induced_network.push(1);
             } else if item.subnetwork.num_nodes() == 0 {
-                // this is a bug, and we should panic
                 panic!("No node network, which shouldn't have happened");
             } else {
                 let subnetwork_clustering: Clustering = subnetwork_clusterer
@@ -406,18 +410,30 @@ where
             induced_clustering_network.num_nodes(),
         );
 
-        let next_max_outer = max_outer_iterations.map(|n| n.saturating_sub(1));
-
-        improved |= improve_clustering(
-            &induced_clustering_network,
-            &mut induced_network_clustering,
-            use_modularity,
-            adjusted_resolution,
-            randomness,
-            rng,
-            next_max_outer,
-            max_local_moving_iterations,
-        )?;
+        if induced_clustering_network.num_nodes() < network.num_nodes() {
+            // Induced network is smaller — recurse to convergence.
+            improved |= improve_clustering(
+                &induced_clustering_network,
+                &mut induced_network_clustering,
+                use_modularity,
+                adjusted_resolution,
+                randomness,
+                rng,
+                None,
+                max_local_moving_iterations,
+            )?;
+        } else {
+            // No shrinkage — run one final LM pass on the induced network
+            // (refinement may have split clusters that LM can re-merge) but
+            // don't recurse further to avoid infinite oscillation.
+            improved |= full_network_clustering::full_network_clustering(
+                &induced_clustering_network,
+                &mut induced_network_clustering,
+                adjusted_resolution,
+                rng,
+                max_local_moving_iterations,
+            )?;
+        }
         clustering.merge_clustering(&induced_network_clustering);
     }
     Ok(improved)
