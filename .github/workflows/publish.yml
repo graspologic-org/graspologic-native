@@ -10,7 +10,21 @@ permissions:
   contents: write
 
 jobs:
+  verify-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Verify tag is on main
+        run: |
+          if ! git branch -r --contains "${{ github.sha }}" | grep -q 'origin/main'; then
+            echo "::error::Tag ${{ github.ref_name }} does not point to a commit on main."
+            exit 1
+          fi
+
   build:
+    needs: verify-tag
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
