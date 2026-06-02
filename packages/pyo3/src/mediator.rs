@@ -1,20 +1,18 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use network_partitions::clustering::Clustering;
 use network_partitions::errors::CoreError;
 use network_partitions::leiden;
 use network_partitions::network::prelude::*;
 use network_partitions::quality;
-use network_partitions::safe_vectors::SafeVectors;
 
 use super::HierarchicalCluster;
 use super::errors::PyLeidenError;
-use crate::errors::InvalidCommunityMappingError;
+use rand::SeedableRng;
 use rand::rngs::SmallRng;
-use rand::{Rng, RngExt, SeedableRng};
 
 pub fn leiden(
     edges: Vec<Edge>,
@@ -27,6 +25,12 @@ pub fn leiden(
     trials: u64,
     max_local_moving_iterations: Option<u32>,
 ) -> Result<(f64, HashMap<String, usize>), PyLeidenError> {
+    if trials == 0 {
+        return Err(PyLeidenError::ParameterRangeError(
+            "trials must be >= 1".to_string(),
+        ));
+    }
+
     let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
     let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
 

@@ -1,24 +1,17 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-#![allow(unused_imports)]
-
 mod errors;
 mod mediator;
 mod scipy_csr;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use numpy::PyReadonlyArray1;
 use pyo3::PyTypeInfo;
 use pyo3::prelude::*;
 
-use network_partitions::clustering::Clustering;
-use network_partitions::errors::CoreError;
 use network_partitions::network::prelude::*;
-use network_partitions::quality;
-
-use network_partitions::safe_vectors::SafeVectors;
 
 use errors::*;
 
