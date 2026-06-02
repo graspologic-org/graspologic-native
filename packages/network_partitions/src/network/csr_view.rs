@@ -14,6 +14,8 @@ use super::network_view::{Neighbor, NetworkView};
 pub enum CsrValidationError {
     /// `indptr` must have length `num_nodes + 1`.
     InvalidIndptrLength { expected: usize, actual: usize },
+    /// `indptr[0]` must be 0.
+    IndptrDoesNotStartAtZero { value: usize },
     /// `indices` and `data` must have the same length.
     IndicesDataLengthMismatch { indices_len: usize, data_len: usize },
     /// `indptr` must be monotonically non-decreasing.
@@ -40,6 +42,9 @@ impl std::fmt::Display for CsrValidationError {
         match self {
             Self::InvalidIndptrLength { expected, actual } => {
                 write!(f, "indptr length {actual} != num_nodes + 1 ({expected})")
+            }
+            Self::IndptrDoesNotStartAtZero { value } => {
+                write!(f, "indptr[0] must be 0, got {value}")
             }
             Self::IndicesDataLengthMismatch {
                 indices_len,
@@ -92,10 +97,10 @@ impl std::error::Error for CsrValidationError {}
 ///
 /// # Invariants (enforced at construction)
 ///
-/// - The graph is undirected (symmetric adjacency)
+/// - The graph is assumed undirected (symmetric adjacency); symmetry is NOT validated
 /// - All indices are in bounds
 /// - All weights are finite and non-negative
-/// - `indptr` is monotonically non-decreasing
+/// - `indptr` is monotonically non-decreasing and starts at 0
 pub struct CsrNetworkView<'a> {
     indptr: &'a [usize],
     indices: &'a [usize],
@@ -126,6 +131,10 @@ impl<'a> CsrNetworkView<'a> {
                 expected: 1,
                 actual: 0,
             });
+        }
+
+        if indptr[0] != 0 {
+            return Err(CsrValidationError::IndptrDoesNotStartAtZero { value: indptr[0] });
         }
 
         let num_nodes = indptr.len() - 1;

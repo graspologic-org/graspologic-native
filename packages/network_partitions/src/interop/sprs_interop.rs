@@ -225,12 +225,13 @@ impl<'a> NetworkView for SprsNetworkView<'a> {
         let n = self.matrix.rows();
         let indices = self.matrix.indices();
         let indptr = self.matrix.indptr();
-        let diag_nnz = (0..n)
-            .filter(|&i| {
+        // Count ALL diagonal entries (handles duplicate (i,i) non-zeros)
+        let diag_nnz: usize = (0..n)
+            .map(|i| {
                 let range = indptr.outer_inds_sz(i);
-                indices[range].contains(&i)
+                indices[range].iter().filter(|&&col| col == i).count()
             })
-            .count();
+            .sum();
         // Exclude self-loops: only count non-diagonal entries, halved for undirected
         (nnz - diag_nnz) / 2
     }
