@@ -605,7 +605,7 @@ mod tests {
     }
 
     #[test]
-    fn test_max_outer_iterations_none_is_unlimited() {
+    fn test_max_outer_iterations_is_synonym_for_iterations() {
         use rand::SeedableRng;
         use rand::rngs::SmallRng;
 
@@ -616,11 +616,11 @@ mod tests {
         let mut rng1: SmallRng = SmallRng::seed_from_u64(123);
         let mut rng2: SmallRng = SmallRng::seed_from_u64(123);
 
-        // max_outer_iterations = None should recurse until convergence
-        let (_, clustering_none) = leiden(
+        // iterations=3, max_outer_iterations=None → uses iterations (3)
+        let (_, clustering_via_iterations) = leiden(
             labeled_network.compact(),
             None,
-            Some(1),
+            Some(3),
             None,
             None,
             &mut rng1,
@@ -630,8 +630,8 @@ mod tests {
         )
         .unwrap();
 
-        // A high value should behave the same (converges before hitting limit)
-        let (_, clustering_high) = leiden(
+        // iterations=1, max_outer_iterations=Some(3) → uses max_outer_iterations (3)
+        let (_, clustering_via_max_outer) = leiden(
             labeled_network.compact(),
             None,
             Some(1),
@@ -639,23 +639,23 @@ mod tests {
             None,
             &mut rng2,
             true,
-            Some(100),
+            Some(3),
             None,
         )
         .unwrap();
 
         for node_id in 0..labeled_network.num_nodes() {
             assert_eq!(
-                clustering_none.cluster_at(node_id).unwrap(),
-                clustering_high.cluster_at(node_id).unwrap(),
-                "Node {} differed between None and Some(100) for max_outer_iterations",
+                clustering_via_iterations.cluster_at(node_id).unwrap(),
+                clustering_via_max_outer.cluster_at(node_id).unwrap(),
+                "Node {} differed between iterations=3 and max_outer_iterations=3",
                 node_id
             );
         }
     }
 
     #[test]
-    fn test_max_outer_iterations_zero_prevents_recursion() {
+    fn test_max_outer_iterations_zero_is_noop() {
         use rand::SeedableRng;
         use rand::rngs::SmallRng;
 
@@ -665,8 +665,9 @@ mod tests {
 
         let mut rng: SmallRng = SmallRng::seed_from_u64(123);
 
-        // max_outer_iterations = Some(0) means no recursion (local moving only)
-        let (_, clustering_zero) = leiden(
+        // max_outer_iterations = Some(0) means zero outer iterations (no work done).
+        // The clustering is returned as-is (each node in its own cluster).
+        let (improved, clustering_zero) = leiden(
             labeled_network.compact(),
             None,
             Some(1),
@@ -679,12 +680,9 @@ mod tests {
         )
         .unwrap();
 
-        // Should produce a valid clustering with bounded cluster count
-        let num_clusters = clustering_zero.next_cluster_id();
-        assert!(num_clusters >= 1 && num_clusters <= labeled_network.num_nodes());
-        for node_id in 0..labeled_network.num_nodes() {
-            assert!(clustering_zero.cluster_at(node_id).is_ok());
-        }
+        assert!(!improved, "Zero iterations should not improve anything");
+        // Each node stays in its own singleton cluster
+        assert_eq!(clustering_zero.next_cluster_id(), labeled_network.num_nodes());
     }
 
     #[test]
@@ -728,8 +726,8 @@ mod tests {
         )
         .unwrap();
 
-        // With Some(1), one full recursion cycle is allowed. This should produce
-        // fewer communities than Some(0) (local moving only).
+        // With Some(1), one full outer iteration runs (LM + refine + aggregate-to-convergence).
+        // This should produce fewer communities than Some(0) (which does nothing).
         let mut rng2: SmallRng = SmallRng::seed_from_u64(42);
         let (_, clustering_zero) = leiden(
             labeled_network.compact(),
