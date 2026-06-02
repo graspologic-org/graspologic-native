@@ -361,18 +361,8 @@ mod tests {
         let view = SprsNetworkView::new(&mat).unwrap();
         let mut rng = SmallRng::seed_from_u64(42);
 
-        let (_improved, clustering) = leiden_view(
-            &view,
-            None,
-            Some(2),
-            Some(0.5),
-            None,
-            &mut rng,
-            false,
-            Some(10),
-            None,
-        )
-        .unwrap();
+        let (_improved, clustering) =
+            leiden_view(&view, None, Some(2), Some(0.5), None, &mut rng, false, None).unwrap();
 
         // improved flag depends on resolution and graph structure
         let communities: std::collections::HashSet<usize> = (0..clustering.num_nodes())
@@ -404,18 +394,8 @@ mod tests {
         let view = SprsNetworkView::new(&mat).unwrap();
         let mut rng = SmallRng::seed_from_u64(42);
 
-        let (_improved, clustering) = leiden_view(
-            &view,
-            None,
-            Some(2),
-            Some(0.5),
-            None,
-            &mut rng,
-            false,
-            Some(10),
-            None,
-        )
-        .unwrap();
+        let (_improved, clustering) =
+            leiden_view(&view, None, Some(2), Some(0.5), None, &mut rng, false, None).unwrap();
 
         // improved flag depends on resolution and graph structure
         let communities: std::collections::HashSet<usize> = (0..clustering.num_nodes())
@@ -460,18 +440,8 @@ mod tests {
         let view = SprsNetworkView::new(&mat).unwrap();
         let mut rng = SmallRng::seed_from_u64(42);
 
-        let (_, clustering) = leiden_view(
-            &view,
-            None,
-            Some(2),
-            Some(0.5),
-            None,
-            &mut rng,
-            false,
-            Some(10),
-            None,
-        )
-        .unwrap();
+        let (_, clustering) =
+            leiden_view(&view, None, Some(2), Some(0.5), None, &mut rng, false, None).unwrap();
 
         // Nodes 0 and 1 should be in the same community
         assert_eq!(
@@ -487,18 +457,8 @@ mod tests {
         let view = SprsNetworkView::new(&mat).unwrap();
         let mut rng = SmallRng::seed_from_u64(42);
 
-        let (_, clustering) = leiden_view(
-            &view,
-            None,
-            Some(2),
-            Some(0.5),
-            None,
-            &mut rng,
-            false,
-            Some(10),
-            None,
-        )
-        .unwrap();
+        let (_, clustering) =
+            leiden_view(&view, None, Some(2), Some(0.5), None, &mut rng, false, None).unwrap();
 
         // Each pair should form its own community
         assert_eq!(
@@ -611,7 +571,6 @@ mod tests {
             None,
             &mut rng,
             false,
-            Some(10),
             None,
         )
         .unwrap();
@@ -639,7 +598,6 @@ mod tests {
             None,
             &mut rng,
             false,
-            Some(10),
             None,
         )
         .unwrap();

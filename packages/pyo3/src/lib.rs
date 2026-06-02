@@ -82,10 +82,6 @@ impl HierarchicalCluster {
 /// :param int trials: Default is `1`. Leiden will be run repeatedly, keeping the best clustering
 ///     as per the maximization function. At the end of `repetitions` it will return the best
 ///     clustering.
-/// :param Optional[int] max_outer_iterations: Default is `None`. When set, limits the recursion
-///     depth of the Leiden algorithm's aggregation phase. A value of 1 means no recursive
-///     aggregation is performed (only local moving + refinement on the original network). When
-///     `None` or 0, the algorithm recurses until convergence (default behavior).
 /// :param Optional[int] max_local_moving_iterations: Default is `None`. When set, limits the
 ///     number of sweeps through the local-moving work queue. One sweep is defined as processing
 ///     `N` node-pop operations from the queue, where `N` is the number of nodes in the network.
@@ -100,7 +96,7 @@ impl HierarchicalCluster {
 /// :raises ParameterRangeError: One of the parameters provided did not meet the requirements in the documentation.
 /// :raises UnsafeInducementError: An internal algorithm error. Please report with reproduction steps.
 #[pyfunction]
-#[pyo3(signature=(/, edges, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, seed=None, trials=1, max_outer_iterations=None, max_local_moving_iterations=None))]
+#[pyo3(signature=(/, edges, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, seed=None, trials=1, max_local_moving_iterations=None))]
 fn leiden(
     py: Python,
     edges: Vec<Edge>,
@@ -111,7 +107,6 @@ fn leiden(
     use_modularity: bool,
     seed: Option<u64>,
     trials: u64,
-    max_outer_iterations: Option<u32>,
     max_local_moving_iterations: Option<u32>,
 ) -> PyResult<(f64, HashMap<String, usize>)> {
     let result: Result<(f64, HashMap<String, usize>), PyLeidenError> = py.detach(move || {
@@ -124,7 +119,6 @@ fn leiden(
             use_modularity,
             seed,
             trials,
-            max_outer_iterations,
             max_local_moving_iterations,
         )
     });
@@ -171,10 +165,6 @@ fn leiden(
 /// :param Optional[int] seed: Default is `None`. If provided, the seed will be used in creating the
 ///     Pseudo-Random Number Generator at a known state, making runs over the same network and
 ///     starting_communities with the same parameters end with the same results.
-/// :param Optional[int] max_outer_iterations: Default is `None`. When set, limits the recursion
-///     depth of the Leiden algorithm's aggregation phase. A value of 1 means no recursive
-///     aggregation is performed (only local moving + refinement on the original network). When
-///     `None` or 0, the algorithm recurses until convergence (default behavior).
 /// :param Optional[int] max_local_moving_iterations: Default is `None`. When set, limits the
 ///     number of sweeps through the local-moving work queue. One sweep is defined as processing
 ///     `N` node-pop operations from the queue, where `N` is the number of nodes in the network.
@@ -190,7 +180,7 @@ fn leiden(
 /// :raises ParameterRangeError: One of the parameters provided did not meet the requirements in the documentation.
 /// :raises UnsafeInducementError: An internal algorithm error. Please report with reproduction steps.
 #[pyfunction]
-#[pyo3(signature=(/, edges, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, max_cluster_size=1000, seed=None, max_outer_iterations=None, max_local_moving_iterations=None))]
+#[pyo3(signature=(/, edges, starting_communities=None, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, max_cluster_size=1000, seed=None, max_local_moving_iterations=None))]
 fn hierarchical_leiden(
     py: Python,
     edges: Vec<Edge>,
@@ -201,7 +191,6 @@ fn hierarchical_leiden(
     use_modularity: bool,
     max_cluster_size: u32,
     seed: Option<u64>,
-    max_outer_iterations: Option<u32>,
     max_local_moving_iterations: Option<u32>,
 ) -> PyResult<Vec<HierarchicalCluster>> {
     let result: Result<Vec<HierarchicalCluster>, PyLeidenError> = py.detach(move || {
@@ -214,7 +203,6 @@ fn hierarchical_leiden(
             use_modularity,
             max_cluster_size,
             seed,
-            max_outer_iterations,
             max_local_moving_iterations,
         )
     });
@@ -278,13 +266,12 @@ fn modularity(
 /// :param bool use_modularity: Default is `True`. Whether to use modularity or CPM.
 /// :param Optional[int] seed: Default is `None`. Random seed for reproducibility.
 /// :param int trials: Default is `1`. Number of independent runs, returning the best result.
-/// :param Optional[int] max_outer_iterations: Default is `None`. Limits recursion depth.
 /// :param Optional[int] max_local_moving_iterations: Default is `None`. Limits local moving sweeps.
 /// :return: The quality score and a dictionary mapping node ID (int) to community ID (int).
 /// :rtype: Tuple[float, Dict[int, int]]
 /// :raises ParameterRangeError: If CSR validation fails or parameters are out of range.
 #[pyfunction]
-#[pyo3(signature=(/, indptr, indices, data, n_nodes, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, seed=None, trials=1, max_outer_iterations=None, max_local_moving_iterations=None))]
+#[pyo3(signature=(/, indptr, indices, data, n_nodes, resolution=1.0, randomness=0.001, iterations=1, use_modularity=true, seed=None, trials=1, max_local_moving_iterations=None))]
 fn leiden_csr<'py>(
     py: Python<'py>,
     indptr: PyReadonlyArray1<'py, i64>,
@@ -297,7 +284,6 @@ fn leiden_csr<'py>(
     use_modularity: bool,
     seed: Option<u64>,
     trials: u64,
-    max_outer_iterations: Option<u32>,
     max_local_moving_iterations: Option<u32>,
 ) -> PyResult<(f64, HashMap<usize, usize>)> {
     let indptr_slice = indptr.as_slice()?;
@@ -325,7 +311,6 @@ fn leiden_csr<'py>(
             use_modularity,
             seed,
             trials,
-            max_outer_iterations,
             max_local_moving_iterations,
         )
     });

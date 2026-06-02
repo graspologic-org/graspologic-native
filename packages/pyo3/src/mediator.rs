@@ -25,7 +25,6 @@ pub fn leiden(
     use_modularity: bool,
     seed: Option<u64>,
     trials: u64,
-    max_outer_iterations: Option<u32>,
     max_local_moving_iterations: Option<u32>,
 ) -> Result<(f64, HashMap<String, usize>), PyLeidenError> {
     let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
@@ -58,7 +57,6 @@ pub fn leiden(
             Some(randomness),
             &mut rng,
             use_modularity,
-            max_outer_iterations,
             max_local_moving_iterations,
         )?;
 
@@ -104,7 +102,6 @@ pub fn hierarchical_leiden(
     use_modularity: bool,
     max_cluster_size: u32,
     seed: Option<u64>,
-    max_outer_iterations: Option<u32>,
     max_local_moving_iterations: Option<u32>,
 ) -> Result<Vec<HierarchicalCluster>, PyLeidenError> {
     let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
@@ -132,7 +129,6 @@ pub fn hierarchical_leiden(
         &mut rng,
         use_modularity,
         max_cluster_size,
-        max_outer_iterations,
         max_local_moving_iterations,
     )?;
 
@@ -175,7 +171,6 @@ pub fn leiden_csr(
     use_modularity: bool,
     seed: Option<u64>,
     trials: u64,
-    max_outer_iterations: Option<u32>,
     max_local_moving_iterations: Option<u32>,
 ) -> Result<(f64, HashMap<usize, usize>), PyLeidenError> {
     use crate::scipy_csr::ScipyCsrView;
@@ -211,7 +206,6 @@ pub fn leiden_csr(
             Some(randomness),
             &mut rng,
             use_modularity,
-            max_outer_iterations,
             max_local_moving_iterations,
         )?;
 

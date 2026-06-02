@@ -48,11 +48,6 @@ const DEFAULT_ITERATIONS: usize = 1;
 /// - `rng`: A seeded random number generator for reproducibility.
 /// - `use_modularity`: If `true`, optimizes modularity; if `false`, uses CPM.
 ///   The network must be constructed appropriately for the chosen mode.
-/// - `max_outer_iterations`: Limits the recursion depth of the aggregation
-///   phase within each outer iteration. `None` or `Some(0)` means unlimited
-///   (recurse until convergence). `Some(1)` means: do LM + refine + aggregate
-///   once, then run LM on the induced network but don't recurse further.
-///   `Some(n)` allows up to `n` levels of aggregation recursion.
 /// - `max_local_moving_iterations`: Limits the number of node-processing sweeps
 ///   within a single local-moving call. `None` or `Some(0)` means unlimited.
 pub fn leiden<T>(
@@ -63,7 +58,6 @@ pub fn leiden<T>(
     randomness: Option<f64>,
     rng: &mut T,
     use_modularity: bool,
-    max_outer_iterations: Option<u32>,
     max_local_moving_iterations: Option<u32>,
 ) -> Result<(bool, Clustering), CoreError>
 where
@@ -72,12 +66,6 @@ where
     let iterations: usize = iterations.unwrap_or(DEFAULT_ITERATIONS);
     let randomness: f64 = randomness.unwrap_or(subnetwork::DEFAULT_RANDOMNESS);
     let max_local: u32 = max_local_moving_iterations.unwrap_or(0);
-
-    // Normalize: Some(0) means unlimited, same as None.
-    let recursion_limit = match max_outer_iterations {
-        Some(0) | None => None,
-        Some(n) => Some(n),
-    };
 
     let adjusted_resolution: f64 = adjust_resolution(resolution, network, use_modularity);
 
@@ -102,7 +90,6 @@ where
             adjusted_resolution,
             randomness,
             rng,
-            recursion_limit,
             max_local,
         )?;
     }
@@ -125,7 +112,6 @@ pub fn leiden_view<N, T>(
     randomness: Option<f64>,
     rng: &mut T,
     use_modularity: bool,
-    max_outer_iterations: Option<u32>,
     max_local_moving_iterations: Option<u32>,
 ) -> Result<(bool, Clustering), CoreError>
 where
@@ -135,12 +121,6 @@ where
     let iterations: usize = iterations.unwrap_or(DEFAULT_ITERATIONS);
     let randomness: f64 = randomness.unwrap_or(subnetwork::DEFAULT_RANDOMNESS);
     let max_local: u32 = max_local_moving_iterations.unwrap_or(0);
-
-    // Normalize: Some(0) means unlimited, same as None.
-    let recursion_limit = match max_outer_iterations {
-        Some(0) | None => None,
-        Some(n) => Some(n),
-    };
 
     let adjusted_resolution: f64 = adjust_resolution(resolution, network, use_modularity);
 
@@ -166,7 +146,6 @@ where
             adjusted_resolution,
             randomness,
             rng,
-            recursion_limit,
             max_local,
         )?;
     }
@@ -178,8 +157,8 @@ where
 ///
 /// Runs local moving on the view (zero-copy), then — if clusters were formed —
 /// materializes a CompactNetwork and delegates to [`improve_clustering_recursive`]
-/// for the refinement and aggregation phases. `max_outer_iterations` controls
-/// how many levels of aggregation recursion are allowed within this pass.
+/// for the refinement and aggregation phases. Inner recursion always runs to
+/// convergence (no depth limit).
 fn improve_clustering_view<N, T>(
     network: &N,
     clustering: &mut Clustering,
@@ -187,7 +166,6 @@ fn improve_clustering_view<N, T>(
     adjusted_resolution: f64,
     randomness: f64,
     rng: &mut T,
-    max_outer_iterations: Option<u32>,
     max_local_moving_iterations: u32,
 ) -> Result<bool, CoreError>
 where
@@ -215,7 +193,6 @@ where
             adjusted_resolution,
             randomness,
             rng,
-            max_outer_iterations,
             max_local_moving_iterations,
         )?;
     }
@@ -227,13 +204,10 @@ where
 /// Given a clustering produced by local moving, this function:
 /// 1. Refines each cluster via stochastic sub-clustering.
 /// 2. Builds an induced (coarsened) network from the refined clustering.
-/// 3. Checks the recursion budget (`max_outer_iterations`):
-///    - `None`: unlimited — recurse until the induced network stops shrinking.
-///    - `Some(n)` where `n > 1`: recurse with `Some(n - 1)`.
-///    - `Some(0)` or `Some(1)`: don't recurse further — run one final LM pass
-///      on the induced network instead.
-/// 4. If the induced network is NOT smaller (regardless of budget), runs one
-///    final LM pass without further recursion to avoid infinite oscillation.
+/// 3. If the induced network is smaller, recursively calls [`improve_clustering`]
+///    on it (which repeats LM → refine → aggregate until convergence).
+/// 4. If the induced network is NOT smaller (no aggregation progress), runs one
+///    final LM pass on it without further recursion to avoid infinite oscillation.
 /// 5. Maps the induced-network clustering back onto the original nodes.
 fn improve_clustering_recursive<T>(
     network: &CompactNetwork,
@@ -242,7 +216,6 @@ fn improve_clustering_recursive<T>(
     adjusted_resolution: f64,
     randomness: f64,
     rng: &mut T,
-    max_outer_iterations: Option<u32>,
     max_local_moving_iterations: u32,
 ) -> Result<bool, CoreError>
 where
@@ -299,16 +272,8 @@ where
 
     let mut improved = false;
 
-    // Determine whether recursion budget allows going deeper.
-    let can_recurse = match max_outer_iterations {
-        None => true, // unlimited
-        Some(n) if n > 1 => true,
-        Some(_) => false, // 0 or 1: budget exhausted
-    };
-    let next_budget = max_outer_iterations.map(|n| n.saturating_sub(1));
-
-    if induced_clustering_network.num_nodes() < network.num_nodes() && can_recurse {
-        // Induced network is smaller and budget allows — recurse deeper.
+    if induced_clustering_network.num_nodes() < network.num_nodes() {
+        // Induced network is smaller — recurse to convergence.
         improved |= improve_clustering(
             &induced_clustering_network,
             &mut induced_network_clustering,
@@ -316,12 +281,12 @@ where
             adjusted_resolution,
             randomness,
             rng,
-            next_budget,
             max_local_moving_iterations,
         )?;
     } else {
-        // Either no shrinkage or recursion budget exhausted — run one final
-        // LM pass on the induced network without further recursion.
+        // No shrinkage — run one final LM pass on the induced network
+        // (refinement may have split clusters that LM can re-merge) but
+        // don't recurse further to avoid infinite oscillation.
         improved |= full_network_clustering::full_network_clustering(
             &induced_clustering_network,
             &mut induced_network_clustering,
@@ -372,8 +337,7 @@ fn guarantee_clustering_sanity_view<N: NetworkView>(
 ///
 /// Runs local moving, then — if any nodes were merged — delegates to
 /// [`improve_clustering_recursive`] for the refinement and aggregation phases.
-/// `max_outer_iterations` controls how many levels of aggregation recursion
-/// are allowed within this pass.
+/// Inner recursion always runs to convergence (no depth limit).
 fn improve_clustering<T>(
     network: &CompactNetwork,
     clustering: &mut Clustering,
@@ -381,7 +345,6 @@ fn improve_clustering<T>(
     adjusted_resolution: f64,
     randomness: f64,
     rng: &mut T,
-    max_outer_iterations: Option<u32>,
     max_local_moving_iterations: u32,
 ) -> Result<bool, CoreError>
 where
@@ -404,7 +367,6 @@ where
             adjusted_resolution,
             randomness,
             rng,
-            max_outer_iterations,
             max_local_moving_iterations,
         )?;
     }
@@ -548,233 +510,6 @@ mod tests {
     }
 
     #[test]
-    fn test_max_outer_iterations_controls_recursion_depth() {
-        use rand::SeedableRng;
-        use rand::rngs::SmallRng;
-
-        let edges = edge_list();
-        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
-        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
-
-        let mut rng1: SmallRng = SmallRng::seed_from_u64(123);
-        let mut rng2: SmallRng = SmallRng::seed_from_u64(123);
-
-        // None = unlimited recursion depth (converge fully)
-        let (_, clustering_unlimited) = leiden(
-            labeled_network.compact(),
-            None,
-            Some(1),
-            None,
-            None,
-            &mut rng1,
-            true,
-            None,
-            None,
-        )
-        .unwrap();
-
-        // Some(0) should behave the same as None (unlimited)
-        let (_, clustering_zero) = leiden(
-            labeled_network.compact(),
-            None,
-            Some(1),
-            None,
-            None,
-            &mut rng2,
-            true,
-            Some(0),
-            None,
-        )
-        .unwrap();
-
-        for node_id in 0..labeled_network.num_nodes() {
-            assert_eq!(
-                clustering_unlimited.cluster_at(node_id).unwrap(),
-                clustering_zero.cluster_at(node_id).unwrap(),
-                "Node {} differed between None and Some(0) for max_outer_iterations",
-                node_id
-            );
-        }
-    }
-
-    #[test]
-    fn test_max_outer_iterations_one_allows_single_recursion() {
-        use rand::SeedableRng;
-        use rand::rngs::SmallRng;
-
-        // Build a network with enough structure that Leiden would normally recurse
-        // (aggregate and re-run). With max_outer_iterations=1, one level of
-        // aggregation is performed (LM + refine + aggregate, then LM on induced).
-        let edges: Vec<Edge> = vec![
-            ("a".into(), "b".into(), 10.0),
-            ("b".into(), "c".into(), 10.0),
-            ("c".into(), "a".into(), 10.0),
-            ("d".into(), "e".into(), 10.0),
-            ("e".into(), "f".into(), 10.0),
-            ("f".into(), "d".into(), 10.0),
-            ("g".into(), "h".into(), 10.0),
-            ("h".into(), "i".into(), 10.0),
-            ("i".into(), "g".into(), 10.0),
-            ("a".into(), "d".into(), 1.0),
-            ("d".into(), "g".into(), 1.0),
-            ("g".into(), "a".into(), 1.0),
-        ];
-
-        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
-        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
-
-        let mut rng1: SmallRng = SmallRng::seed_from_u64(42);
-        let mut rng2: SmallRng = SmallRng::seed_from_u64(42);
-
-        // Some(1) = one level of aggregation recursion
-        let (_, clustering_one) = leiden(
-            labeled_network.compact(),
-            None,
-            Some(1),
-            None,
-            None,
-            &mut rng1,
-            true,
-            Some(1),
-            None,
-        )
-        .unwrap();
-
-        // None = unlimited recursion (converge fully)
-        let (_, clustering_none) = leiden(
-            labeled_network.compact(),
-            None,
-            Some(1),
-            None,
-            None,
-            &mut rng2,
-            true,
-            None,
-            None,
-        )
-        .unwrap();
-
-        // Should produce valid clusterings
-        for node_id in 0..labeled_network.num_nodes() {
-            assert!(clustering_one.cluster_at(node_id).is_ok());
-            assert!(clustering_none.cluster_at(node_id).is_ok());
-        }
-
-        // Unlimited recursion should produce <= clusters than depth-limited
-        assert!(
-            clustering_none.next_cluster_id() <= clustering_one.next_cluster_id(),
-            "None (unlimited) should produce <= clusters than Some(1): got {} vs {}",
-            clustering_none.next_cluster_id(),
-            clustering_one.next_cluster_id()
-        );
-    }
-
-    #[test]
-    fn test_max_outer_iterations_higher_values_allow_more_recursion() {
-        use rand::SeedableRng;
-        use rand::rngs::SmallRng;
-
-        // Build a deeper network that benefits from multiple recursion levels
-        let edges: Vec<Edge> = vec![
-            ("a".into(), "b".into(), 10.0),
-            ("b".into(), "c".into(), 10.0),
-            ("c".into(), "a".into(), 10.0),
-            ("d".into(), "e".into(), 10.0),
-            ("e".into(), "f".into(), 10.0),
-            ("f".into(), "d".into(), 10.0),
-            ("g".into(), "h".into(), 10.0),
-            ("h".into(), "i".into(), 10.0),
-            ("i".into(), "g".into(), 10.0),
-            ("j".into(), "k".into(), 10.0),
-            ("k".into(), "l".into(), 10.0),
-            ("l".into(), "j".into(), 10.0),
-            ("a".into(), "d".into(), 1.0),
-            ("d".into(), "g".into(), 1.0),
-            ("g".into(), "j".into(), 1.0),
-            ("j".into(), "a".into(), 1.0),
-        ];
-
-        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
-        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
-
-        let mut rng1: SmallRng = SmallRng::seed_from_u64(77);
-        let mut rng2: SmallRng = SmallRng::seed_from_u64(77);
-
-        let (_, clustering_depth1) = leiden(
-            labeled_network.compact(),
-            None,
-            Some(1),
-            None,
-            None,
-            &mut rng1,
-            true,
-            Some(1),
-            None,
-        )
-        .unwrap();
-
-        let (_, clustering_depth5) = leiden(
-            labeled_network.compact(),
-            None,
-            Some(1),
-            None,
-            None,
-            &mut rng2,
-            true,
-            Some(5),
-            None,
-        )
-        .unwrap();
-
-        // The number of clusters is not guaranteed to be monotonic w.r.t. recursion depth; just
-        // sanity-check that both runs produce a bounded, non-empty clustering.
-        let depth1_clusters = clustering_depth1.next_cluster_id();
-        let depth5_clusters = clustering_depth5.next_cluster_id();
-        assert!(depth1_clusters >= 1 && depth1_clusters <= labeled_network.num_nodes());
-        assert!(depth5_clusters >= 1 && depth5_clusters <= labeled_network.num_nodes());
-    }
-
-    #[test]
-    fn test_both_limits_together_produce_valid_clustering() {
-        use rand::SeedableRng;
-        use rand::rngs::SmallRng;
-
-        let edges = edge_list();
-        let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
-        let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), true);
-
-        let mut rng: SmallRng = SmallRng::seed_from_u64(55);
-
-        // Apply both limits simultaneously
-        let (improved, clustering) = leiden(
-            labeled_network.compact(),
-            None,
-            Some(1),
-            None,
-            None,
-            &mut rng,
-            true,
-            Some(2),
-            Some(2),
-        )
-        .unwrap();
-
-        // Should have produced some result (improved or not is fine with limits)
-        let _ = improved;
-
-        // Every node should have a valid cluster
-        for node_id in 0..labeled_network.num_nodes() {
-            assert!(clustering.cluster_at(node_id).is_ok());
-        }
-
-        // Should have at least 1 cluster
-        assert!(
-            clustering.next_cluster_id() >= 1,
-            "Should have at least 1 cluster"
-        );
-    }
-
-    #[test]
     fn test_max_local_moving_iterations_through_leiden() {
         use rand::SeedableRng;
         use rand::rngs::SmallRng;
@@ -795,7 +530,6 @@ mod tests {
             None,
             &mut rng1,
             true,
-            None,
             Some(1),
         )
         .unwrap();
@@ -809,7 +543,6 @@ mod tests {
             None,
             &mut rng2,
             true,
-            None,
             Some(0),
         )
         .unwrap();

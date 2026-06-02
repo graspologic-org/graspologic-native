@@ -56,32 +56,12 @@ mod tests {
         let compact = CompactNetwork::from(nodes, neighbors, 0.0);
 
         let mut rng1 = SmallRng::seed_from_u64(42);
-        let (_improved1, c1) = leiden(
-            &compact,
-            None,
-            Some(1),
-            None,
-            None,
-            &mut rng1,
-            true,
-            None,
-            None,
-        )
-        .unwrap();
+        let (_improved1, c1) =
+            leiden(&compact, None, Some(1), None, None, &mut rng1, true, None).unwrap();
 
         let mut rng2 = SmallRng::seed_from_u64(42);
-        let (_improved2, c2) = leiden_view(
-            &compact,
-            None,
-            Some(1),
-            None,
-            None,
-            &mut rng2,
-            true,
-            Some(10),
-            None,
-        )
-        .unwrap();
+        let (_improved2, c2) =
+            leiden_view(&compact, None, Some(1), None, None, &mut rng2, true, None).unwrap();
 
         // Both should find 2 communities
         assert_eq!(c1.next_cluster_id(), 2);
