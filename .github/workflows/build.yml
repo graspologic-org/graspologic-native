@@ -110,6 +110,7 @@ jobs:
         if: ${{ !matrix.manylinux || matrix.manylinux != 'musllinux_1_2' }}
         run: |
           cd packages/pyo3
+          pip install numpy scipy
           pip install ../../target/wheels/*.whl
           python -m unittest
         shell: bash
