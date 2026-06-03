@@ -421,7 +421,6 @@ mod tests {
             None,
             &mut rng,
             false,
-            Some(10),
             None,
         )
         .unwrap();
@@ -471,18 +470,8 @@ mod tests {
         let view = PetgraphNetworkView::new(&g).unwrap();
         let mut rng = SmallRng::seed_from_u64(42);
 
-        let (_improved, clustering) = leiden_view(
-            &view,
-            None,
-            Some(2),
-            Some(0.5),
-            None,
-            &mut rng,
-            false,
-            Some(10),
-            None,
-        )
-        .unwrap();
+        let (_improved, clustering) =
+            leiden_view(&view, None, Some(2), Some(0.5), None, &mut rng, false, None).unwrap();
 
         // improved flag depends on resolution and graph structure
         // Should find 2 communities
@@ -536,7 +525,6 @@ mod tests {
             None,
             &mut rng,
             false,
-            Some(10),
             None,
         )
         .unwrap();
@@ -600,18 +588,8 @@ mod tests {
         let view = PetgraphNetworkView::new(&g).unwrap();
         let mut rng = SmallRng::seed_from_u64(123);
 
-        let (_, clustering) = leiden_view(
-            &view,
-            None,
-            Some(2),
-            Some(0.5),
-            None,
-            &mut rng,
-            false,
-            Some(10),
-            None,
-        )
-        .unwrap();
+        let (_, clustering) =
+            leiden_view(&view, None, Some(2), Some(0.5), None, &mut rng, false, None).unwrap();
 
         // Should split into 2 communities
         assert_eq!(
@@ -658,18 +636,8 @@ mod tests {
         let view = PetgraphNetworkView::new(&g).unwrap();
         let mut rng = SmallRng::seed_from_u64(42);
 
-        let (_, clustering) = leiden_view(
-            &view,
-            None,
-            Some(2),
-            Some(0.5),
-            None,
-            &mut rng,
-            false,
-            Some(10),
-            None,
-        )
-        .unwrap();
+        let (_, clustering) =
+            leiden_view(&view, None, Some(2), Some(0.5), None, &mut rng, false, None).unwrap();
 
         // Each node should be in its own community (no reason to merge)
         assert_eq!(clustering.num_nodes(), 3);

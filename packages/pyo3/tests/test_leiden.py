@@ -110,7 +110,7 @@ class TestLeidenCsr(unittest.TestCase):
             use_modularity=True,
             seed=42,
             trials=1,
-            max_outer_iterations=10,
+
             max_local_moving_iterations=None,
         )
 
@@ -146,7 +146,7 @@ class TestLeidenCsr(unittest.TestCase):
             indptr=indptr, indices=indices, data=data, n_nodes=5,
             resolution=1.0, randomness=0.01, iterations=2,
             use_modularity=True, seed=99, trials=1,
-            max_outer_iterations=10, max_local_moving_iterations=None,
+            max_local_moving_iterations=None,
         )
         _, p1 = gcn.leiden_csr(**kwargs)
         _, p2 = gcn.leiden_csr(**kwargs)
@@ -175,7 +175,7 @@ class TestLeidenCsr(unittest.TestCase):
             indptr=indptr, indices=indices, data=data, n_nodes=6,
             resolution=1.0, randomness=0.01, iterations=2,
             use_modularity=True, seed=42,
-            max_outer_iterations=10, max_local_moving_iterations=None,
+            max_local_moving_iterations=None,
         )
         q1, _ = gcn.leiden_csr(trials=1, **kwargs)
         q5, _ = gcn.leiden_csr(trials=5, **kwargs)

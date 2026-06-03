@@ -61,7 +61,6 @@ pub fn leiden(
         &mut rng,
         use_modularity,
         None,
-        None,
     );
 
     let leiden_completion_instant: Instant = Instant::now();

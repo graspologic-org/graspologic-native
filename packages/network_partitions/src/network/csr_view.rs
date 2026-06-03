@@ -456,18 +456,8 @@ mod tests {
         let compact = view.to_compact_network();
 
         let mut rng = SmallRng::seed_from_u64(42);
-        let (improved, clustering) = leiden(
-            &compact,
-            None,
-            Some(1),
-            None,
-            None,
-            &mut rng,
-            true,
-            None,
-            None,
-        )
-        .unwrap();
+        let (improved, clustering) =
+            leiden(&compact, None, Some(1), None, None, &mut rng, true, None).unwrap();
 
         assert!(improved);
         // Should find 2 communities
