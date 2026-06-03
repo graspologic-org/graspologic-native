@@ -1,20 +1,18 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use network_partitions::clustering::Clustering;
 use network_partitions::errors::CoreError;
 use network_partitions::leiden;
 use network_partitions::network::prelude::*;
 use network_partitions::quality;
-use network_partitions::safe_vectors::SafeVectors;
 
-use super::errors::PyLeidenError;
 use super::HierarchicalCluster;
-use crate::errors::InvalidCommunityMappingError;
-use rand::{Rng, SeedableRng};
-use rand_xorshift::XorShiftRng;
+use super::errors::PyLeidenError;
+use rand::SeedableRng;
+use rand::rngs::SmallRng;
 
 pub fn leiden(
     edges: Vec<Edge>,
@@ -25,7 +23,14 @@ pub fn leiden(
     use_modularity: bool,
     seed: Option<u64>,
     trials: u64,
+    max_local_moving_iterations: Option<u32>,
 ) -> Result<(f64, HashMap<String, usize>), PyLeidenError> {
+    if trials == 0 {
+        return Err(PyLeidenError::ParameterRangeError(
+            "trials must be >= 1".to_string(),
+        ));
+    }
+
     let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
     let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
 
@@ -37,9 +42,9 @@ pub fn leiden(
         None => None,
     };
 
-    let mut rng: XorShiftRng = match seed {
-        Some(seed) => XorShiftRng::seed_from_u64(seed),
-        None => XorShiftRng::from_entropy(),
+    let mut rng: SmallRng = match seed {
+        Some(seed) => SmallRng::seed_from_u64(seed),
+        None => SmallRng::from_rng(&mut rand::rng()),
     };
 
     let compact_network: &CompactNetwork = labeled_network.compact();
@@ -56,6 +61,7 @@ pub fn leiden(
             Some(randomness),
             &mut rng,
             use_modularity,
+            max_local_moving_iterations,
         )?;
 
         let quality_score: f64 = quality::quality(
@@ -100,6 +106,7 @@ pub fn hierarchical_leiden(
     use_modularity: bool,
     max_cluster_size: u32,
     seed: Option<u64>,
+    max_local_moving_iterations: Option<u32>,
 ) -> Result<Vec<HierarchicalCluster>, PyLeidenError> {
     let mut builder: LabeledNetworkBuilder<String> = LabeledNetworkBuilder::new();
     let labeled_network: LabeledNetwork<String> = builder.build(edges.into_iter(), use_modularity);
@@ -111,9 +118,9 @@ pub fn hierarchical_leiden(
         )?),
         None => None,
     };
-    let mut rng: XorShiftRng = match seed {
-        Some(seed) => XorShiftRng::seed_from_u64(seed),
-        None => XorShiftRng::from_entropy(),
+    let mut rng: SmallRng = match seed {
+        Some(seed) => SmallRng::seed_from_u64(seed),
+        None => SmallRng::from_rng(&mut rand::rng()),
     };
 
     let compact_network: &CompactNetwork = labeled_network.compact();
@@ -126,6 +133,7 @@ pub fn hierarchical_leiden(
         &mut rng,
         use_modularity,
         max_cluster_size,
+        max_local_moving_iterations,
     )?;
 
     let mut hierarchical_clustering: Vec<HierarchicalCluster> =
@@ -156,6 +164,76 @@ fn map_from(
     Ok(map)
 }
 
+pub fn leiden_csr(
+    indptr: &[i64],
+    indices: &[i32],
+    data: &[f64],
+    n_nodes: usize,
+    resolution: f64,
+    randomness: f64,
+    iterations: usize,
+    use_modularity: bool,
+    seed: Option<u64>,
+    trials: u64,
+    max_local_moving_iterations: Option<u32>,
+) -> Result<(f64, HashMap<usize, usize>), PyLeidenError> {
+    use crate::scipy_csr::ScipyCsrView;
+    use network_partitions::network::network_view::NetworkView;
+
+    if trials == 0 {
+        return Err(PyLeidenError::ParameterRangeError(
+            "trials must be >= 1".to_string(),
+        ));
+    }
+
+    let csr_view = ScipyCsrView::new(indptr, indices, data, n_nodes, use_modularity)
+        .map_err(|e| PyLeidenError::ParameterRangeError(format!("CSR validation failed: {e}")))?;
+
+    let mut rng: SmallRng = match seed {
+        Some(seed) => SmallRng::seed_from_u64(seed),
+        None => SmallRng::from_rng(&mut rand::rng()),
+    };
+
+    // Materialize CompactNetwork once for quality scoring (O(nnz) allocation)
+    let compact_network = csr_view.to_compact_network();
+
+    let mut best_quality_score: f64 = f64::MIN;
+    let mut best_clustering: Option<Clustering> = None;
+
+    for _i in 0..trials {
+        // Zero-copy: runs local moving directly on the scipy CSR view
+        let (_improved, clustering) = leiden::leiden_view(
+            &csr_view,
+            None,
+            Some(iterations),
+            Some(resolution),
+            Some(randomness),
+            &mut rng,
+            use_modularity,
+            max_local_moving_iterations,
+        )?;
+
+        let quality_score: f64 = quality::quality(
+            &compact_network,
+            &clustering,
+            Some(resolution),
+            use_modularity,
+        )?;
+        if quality_score > best_quality_score {
+            best_quality_score = quality_score;
+            best_clustering = Some(clustering);
+        }
+    }
+
+    let clustering = best_clustering.unwrap();
+    let mut result: HashMap<usize, usize> = HashMap::with_capacity(clustering.num_nodes());
+    for item in &clustering {
+        result.insert(item.node_id, item.cluster);
+    }
+
+    Ok((best_quality_score, result))
+}
+
 fn communities_to_clustering(
     network: &LabeledNetwork<String>,
     communities: HashMap<String, usize>,
@@ -179,8 +257,7 @@ fn communities_to_clustering(
 
     for (node, community) in communities {
         let mapping: Option<CompactNodeId> = network.compact_id_for(node);
-        if mapping.is_some() {
-            let compact_node_id: CompactNodeId = mapping.unwrap();
+        if let Some(compact_node_id) = mapping {
             clustering
                 .update_cluster_at(compact_node_id, community)
                 .map_err(|_| PyLeidenError::ClusterIndexingError)?;

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 use super::quality_value_increment::calculate;
 use crate::clustering::Clustering;
@@ -162,7 +162,7 @@ impl SubnetworkClusteringGenerator {
         }
 
         for i in 0..length {
-            let random_index: usize = rng.gen_range(0..length);
+            let random_index: usize = rng.random_range(0..length);
             self.node_processing_order.swap(i, random_index);
         }
     }
@@ -244,7 +244,7 @@ where
     }
 
     let chosen_cluster: usize = if total_adjusted_qvi.is_finite() {
-        let randomized_transform_qv: f64 = total_adjusted_qvi * rng.gen::<f64>(); // rng.gen will return a number [0.0, 1.0)
+        let randomized_transform_qv: f64 = total_adjusted_qvi * rng.random::<f64>(); // rng.random will return a number [0.0, 1.0)
         let bin_search_result: Result<usize, usize> = summed_qvi_records
             .binary_search_by(|probe: &f64| probe.partial_cmp(&randomized_transform_qv).unwrap());
         let location: usize = match bin_search_result {

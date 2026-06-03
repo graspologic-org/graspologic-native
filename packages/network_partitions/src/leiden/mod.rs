@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-pub use self::hierarchical::{hierarchical_leiden, HierarchicalCluster};
-pub use self::leiden_clustering::leiden;
+pub use self::hierarchical::{HierarchicalCluster, hierarchical_leiden};
+pub use self::leiden_clustering::{leiden, leiden_view};
 
 mod full_network_clustering;
 mod full_network_work_queue;

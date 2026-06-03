@@ -7,8 +7,10 @@ use std::io::{BufReader, Read};
 
 use crate::errors::NetworkError;
 
-use super::compact_network::{CompactNeighbor, CompactNetwork, CompactNode, CompactNodeId};
-use super::networks::NetworkDetails;
+use super::compact_network::{
+    CompactNeighbor, CompactNeighborViewIterator, CompactNetwork, CompactNode, CompactNodeId,
+};
+use super::network_view::NetworkView;
 use super::{Edge, Identifier};
 
 use std::hash::Hash;
@@ -20,13 +22,28 @@ pub struct LabeledNetwork<T> {
     id_to_labels: Vec<T>,
 }
 
-impl<T> NetworkDetails for LabeledNetwork<T> {
+impl<T> NetworkView for LabeledNetwork<T> {
+    type Neighbors<'a>
+        = CompactNeighborViewIterator<'a>
+    where
+        Self: 'a;
+
     fn num_nodes(&self) -> usize {
         self.network_structure.num_nodes()
     }
 
-    fn num_edges(&self) -> usize {
-        self.network_structure.num_edges()
+    fn node_weight(
+        &self,
+        node_id: usize,
+    ) -> f64 {
+        self.network_structure.node_weight(node_id)
+    }
+
+    fn neighbors_for(
+        &self,
+        node_id: usize,
+    ) -> Self::Neighbors<'_> {
+        NetworkView::neighbors_for(&self.network_structure, node_id)
     }
 
     fn total_node_weight(&self) -> f64 {
@@ -39,6 +56,10 @@ impl<T> NetworkDetails for LabeledNetwork<T> {
 
     fn total_self_links_edge_weight(&self) -> f64 {
         self.network_structure.total_self_links_edge_weight()
+    }
+
+    fn num_edges(&self) -> usize {
+        self.network_structure.num_edges()
     }
 }
 
@@ -270,7 +291,7 @@ pub mod tests {
             ("g".into(), "c".into(), 3.0),
             ("h".into(), "d".into(), 11.0),
         ];
-        return edges;
+        edges
     }
 
     fn expected_label_mappings() -> (HashMap<String, usize>, Vec<String>) {
@@ -290,8 +311,8 @@ pub mod tests {
             .enumerate()
             .map(|(index, label)| (label, index))
             .collect();
-        let label_to_id: HashMap<String, usize> = HashMap::from_iter(label_to_id_vec.into_iter());
-        return (label_to_id, label_order);
+        let label_to_id: HashMap<String, usize> = HashMap::from_iter(label_to_id_vec);
+        (label_to_id, label_order)
     }
 
     #[test]

@@ -8,7 +8,7 @@ use network_partitions::network::prelude::*;
 use network_partitions::quality;
 
 use rand::SeedableRng;
-use rand_xorshift::XorShiftRng;
+use rand::rngs::SmallRng;
 
 use std::fs::File;
 use std::io::prelude::*;
@@ -44,12 +44,12 @@ pub fn leiden(
 
     let loaded_file_instant: Instant = Instant::now();
 
-    let mut rng: XorShiftRng = match seed {
+    let mut rng: SmallRng = match seed {
         Some(seed) => {
             println!("Using {} for PRNG seed", seed as u64);
-            XorShiftRng::seed_from_u64(seed as u64)
+            SmallRng::seed_from_u64(seed as u64)
         }
-        None => XorShiftRng::from_entropy(),
+        None => SmallRng::from_rng(&mut rand::rng()),
     };
 
     let result: Result<(bool, Clustering), CoreError> = leiden_internal(
@@ -60,6 +60,7 @@ pub fn leiden(
         Some(randomness),
         &mut rng,
         use_modularity,
+        None,
     );
 
     let leiden_completion_instant: Instant = Instant::now();

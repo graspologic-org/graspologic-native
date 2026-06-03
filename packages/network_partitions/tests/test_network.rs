@@ -27,16 +27,12 @@ mod tests {
             );
         assert!(result.is_err());
         match result.err() {
-            Some(NetworkError::EdgeFileFormatError) => assert!(true),
-            Some(err) => assert!(
-                false,
+            Some(NetworkError::EdgeFileFormatError) => {}
+            Some(err) => panic!(
                 "Actual NetworkError returned was not EdgeFileFormatError but an {:?}",
                 err
             ),
-            _ => assert!(
-                false,
-                "Somehow this file was parsed correctly, which is certainly wrong"
-            ),
+            _ => panic!("Somehow this file was parsed correctly, which is certainly wrong"),
         }
     }
 }

@@ -66,3 +66,117 @@ class TestLeiden(unittest.TestCase):
 
         _, partitions = gcn.leiden(edges, starting_communities=communities, seed=seed)
         self.assertNotEqual(partitions["dwayne"], partitions["nathan"])
+
+
+class TestLeidenCsr(unittest.TestCase):
+    def test_leiden_csr_basic(self):
+        """Test leiden_csr on a simple two-triangle graph connected by a weak bridge."""
+        import numpy as np
+
+        # Two triangles: {0,1,2} and {3,4,5} connected by weak edge 2-3
+        # Build symmetric CSR for 6 nodes
+        rows = []
+        cols = []
+        weights = []
+        edges = [
+            (0, 1, 10.0), (0, 2, 10.0),
+            (1, 2, 10.0),
+            (2, 3, 0.01),
+            (3, 4, 10.0), (3, 5, 10.0),
+            (4, 5, 10.0),
+        ]
+        for (r, c, w) in edges:
+            rows.extend([r, c])
+            cols.extend([c, r])
+            weights.extend([w, w])
+
+        n_nodes = 6
+        # Build CSR from COO
+        from scipy.sparse import csr_matrix
+        mat = csr_matrix((weights, (rows, cols)), shape=(n_nodes, n_nodes))
+
+        indptr = mat.indptr.astype(np.int64)
+        indices = mat.indices.astype(np.int32)
+        data = mat.data.astype(np.float64)
+
+        modularity, partitions = gcn.leiden_csr(
+            indptr=indptr,
+            indices=indices,
+            data=data,
+            n_nodes=n_nodes,
+            resolution=1.0,
+            randomness=0.01,
+            iterations=2,
+            use_modularity=True,
+            seed=42,
+            trials=1,
+
+            max_local_moving_iterations=None,
+        )
+
+        # Should find 2 communities
+        communities = set(partitions.values())
+        self.assertEqual(len(communities), 2)
+        # Nodes in same triangle should be in same community
+        self.assertEqual(partitions[0], partitions[1])
+        self.assertEqual(partitions[0], partitions[2])
+        self.assertEqual(partitions[3], partitions[4])
+        self.assertEqual(partitions[3], partitions[5])
+        # The two triangles should be in different communities
+        self.assertNotEqual(partitions[0], partitions[3])
+
+    def test_leiden_csr_deterministic_with_seed(self):
+        """Same seed should produce same results."""
+        import numpy as np
+        from scipy.sparse import csr_matrix
+
+        edges = [(0, 1, 1.0), (1, 2, 1.0), (2, 0, 1.0), (2, 3, 0.1), (3, 4, 1.0), (4, 3, 1.0)]
+        rows, cols, weights = [], [], []
+        for (r, c, w) in edges:
+            rows.extend([r, c])
+            cols.extend([c, r])
+            weights.extend([w, w])
+
+        mat = csr_matrix((weights, (rows, cols)), shape=(5, 5))
+        indptr = mat.indptr.astype(np.int64)
+        indices = mat.indices.astype(np.int32)
+        data = mat.data.astype(np.float64)
+
+        kwargs = dict(
+            indptr=indptr, indices=indices, data=data, n_nodes=5,
+            resolution=1.0, randomness=0.01, iterations=2,
+            use_modularity=True, seed=99, trials=1,
+            max_local_moving_iterations=None,
+        )
+        _, p1 = gcn.leiden_csr(**kwargs)
+        _, p2 = gcn.leiden_csr(**kwargs)
+        self.assertEqual(p1, p2)
+
+    def test_leiden_csr_trials_improves_or_equals(self):
+        """Multiple trials should produce quality >= single trial."""
+        import numpy as np
+        from scipy.sparse import csr_matrix
+
+        edges = [(0, 1, 5.0), (1, 2, 5.0), (2, 0, 5.0),
+                 (3, 4, 5.0), (4, 5, 5.0), (5, 3, 5.0),
+                 (2, 3, 0.1)]
+        rows, cols, weights = [], [], []
+        for (r, c, w) in edges:
+            rows.extend([r, c])
+            cols.extend([c, r])
+            weights.extend([w, w])
+
+        mat = csr_matrix((weights, (rows, cols)), shape=(6, 6))
+        indptr = mat.indptr.astype(np.int64)
+        indices = mat.indices.astype(np.int32)
+        data = mat.data.astype(np.float64)
+
+        kwargs = dict(
+            indptr=indptr, indices=indices, data=data, n_nodes=6,
+            resolution=1.0, randomness=0.01, iterations=2,
+            use_modularity=True, seed=42,
+            max_local_moving_iterations=None,
+        )
+        q1, _ = gcn.leiden_csr(trials=1, **kwargs)
+        q5, _ = gcn.leiden_csr(trials=5, **kwargs)
+        self.assertGreaterEqual(q5, q1)

@@ -1,0 +1,148 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Verify tag is on main
+        run: |
+          if ! git branch -r --contains "${{ github.sha }}" | grep -q 'origin/main'; then
+            echo "::error::Tag ${{ github.ref_name }} does not point to a commit on main."
+            exit 1
+          fi
+      - name: Verify tag matches Cargo.toml version
+        run: |
+          CARGO_VERSION=$(grep '^version' packages/pyo3/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          TAG_VERSION="${{ github.ref_name }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match Cargo.toml version ($CARGO_VERSION)"
+            exit 1
+          fi
+
+  build:
+    needs: verify-tag
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x64
+            manylinux: "2014"
+            args: -m packages/pyo3/Cargo.toml --release --sdist
+            artifact_name: dist-linux-x64
+          - runner: ubuntu-24.04-arm
+            target: aarch64
+            manylinux: "2014"
+            args: -m packages/pyo3/Cargo.toml --release
+            artifact_name: dist-linux-aarch64
+          - runner: ubuntu-latest
+            target: x64
+            manylinux: musllinux_1_2
+            args: -m packages/pyo3/Cargo.toml --release
+            artifact_name: dist-musllinux-x64
+          - runner: ubuntu-24.04-arm
+            target: aarch64
+            manylinux: musllinux_1_2
+            args: -m packages/pyo3/Cargo.toml --release
+            artifact_name: dist-musllinux-aarch64
+          - runner: windows-latest
+            target: x64
+            args: -m packages/pyo3/Cargo.toml --release
+            artifact_name: dist-windows-x64
+          - runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            args: -m packages/pyo3/Cargo.toml --release
+            artifact_name: dist-windows-aarch64
+          - runner: macos-latest
+            target: universal2-apple-darwin
+            args: -m packages/pyo3/Cargo.toml --release
+            artifact_name: dist-macos-universal2
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Rust Unittests
+        run: |
+          cargo test --manifest-path packages/network_partitions/Cargo.toml
+
+      - uses: PyO3/maturin-action@v1
+        if: ${{ !startsWith(matrix.runner, 'windows') }}
+        name: Maturin Build
+        with:
+          command: build
+          target: ${{ matrix.target }}
+          args: ${{ matrix.args }}
+          manylinux: ${{ matrix.manylinux || 'auto' }}
+
+      - uses: PyO3/maturin-action@v1
+        if: ${{ startsWith(matrix.runner, 'windows') }}
+        name: Maturin Build (Windows)
+        with:
+          command: build
+          target: ${{ matrix.target }}
+          args: ${{ matrix.args }}
+
+      - name: Python Unittests
+        if: ${{ !matrix.manylinux || matrix.manylinux != 'musllinux_1_2' }}
+        run: |
+          cd packages/pyo3
+          uv venv
+          uv pip install ../../target/wheels/*.whl
+          uv run python -m unittest
+        shell: bash
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            target/wheels/*.whl
+            target/wheels/*.tar.gz
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    environment: pypi-publish
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Generate checksums
+        run: |
+          sha256sum dist/*.whl dist/*.tar.gz > checksums.txt
+          cat checksums.txt
+
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          skip-existing: true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "graspologic-native ${{ github.ref_name }}" \
+            --notes-file checksums.txt \
+            dist/*.whl \
+            dist/*.tar.gz
