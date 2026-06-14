@@ -13,9 +13,9 @@ crate-type = ["rlib","cdylib"]
 
 [dependencies]
 rand = "0.10"
-numpy = "0.28"
+numpy = "0.29"
 network_partitions = { path = "../network_partitions" }
 
 [dependencies.pyo3]
-version = "0.28"
+version = "0.29"
 features = ["extension-module", "abi3-py39"]
